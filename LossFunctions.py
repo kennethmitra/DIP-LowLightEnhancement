@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch.nn.functional as F
 import torch
 
 import glob
@@ -69,6 +70,88 @@ class ExposureControlLoss(nn.Module):
 
         return exp_loss_orig_code, exp_loss_fixed_code, exp_loss_paper
 
+class SpatialConsistencyLoss(nn.Module):
+    """
+    The Spatial Consistency Loss attempts to preserve the difference between neighboring regions (top, down, left right)
+    i.e) (1/K) * SUM( SUM( (|Y_i - Y_j| - |I_i - I_j|)^2 ) foreach neighbor region j) over all regions i)
+    """
+    def __init__(self):
+        super(SpatialConsistencyLoss, self).__init__()
+        self.pool = nn.AvgPool2d(4)
+        self.kernel_left = torch.FloatTensor([[0, 0, 0],
+                                              [-1, 1, 0],
+                                              [0, 0, 0]]).unsqueeze(0).unsqueeze(0)
+        self.kernel_right = torch.FloatTensor([[0, 0, 0],
+                                               [0, 1, -1],
+                                               [0, 0, 0]]).unsqueeze(0).unsqueeze(0)
+        self.kernel_up = torch.FloatTensor([[0, -1, 0],
+                                            [0, 1, 0],
+                                            [0, 0, 0]]).unsqueeze(0).unsqueeze(0)
+        self.kernel_down = torch.FloatTensor([[0, 0, 0],
+                                              [0, 1, 0],
+                                              [0, -1, 0]]).unsqueeze(0).unsqueeze(0)
+
+    def forward(self, enhanced, original):
+
+        # Convert to grayscale (keepdim=True since F.conv2d() expects n,c,h,w)
+        orig_grayscale = torch.mean(original, dim=1, keepdim=True)
+        enhanced_grayscale = torch.mean(enhanced, dim=1, keepdim=True)
+
+        # Compute average of each region
+        orig_regions = self.pool(orig_grayscale)
+        enhanced_regions = self.pool(enhanced_grayscale)
+
+        # Compute differences from neighbors for each region
+        conv_diff_left_orig = F.conv2d(orig_regions, self.kernel_left, padding=1)
+        conv_diff_right_orig = F.conv2d(orig_regions, self.kernel_right, padding=1)
+        conv_diff_up_orig = F.conv2d(orig_regions, self.kernel_up, padding=1)
+        conv_diff_down_orig = F.conv2d(orig_regions, self.kernel_down, padding=1)
+
+        conv_diff_left_enhanced = F.conv2d(enhanced_regions, self.kernel_left, padding=1)
+        conv_diff_right_enhanced = F.conv2d(enhanced_regions, self.kernel_right, padding=1)
+        conv_diff_up_enhanced = F.conv2d(enhanced_regions, self.kernel_up, padding=1)
+        conv_diff_down_enhanced = F.conv2d(enhanced_regions, self.kernel_down, padding=1)
+
+        # Compute difference between differences in each region
+        # TODO the paper says to take absolute value here but their code does not (and it makes more sense not to)
+        diff_left = (conv_diff_left_orig - conv_diff_left_enhanced)**2
+        diff_right = (conv_diff_right_orig - conv_diff_right_enhanced)**2
+        diff_up = (conv_diff_up_orig - conv_diff_up_enhanced)**2
+        diff_down = (conv_diff_down_orig - conv_diff_down_enhanced)**2
+
+        spa_loss = torch.mean(diff_left + diff_right + diff_up + diff_down, dim=(1, 2, 3))
+
+        return spa_loss
+
+
+class IlluminationSmoothnessLoss(nn.Module):
+    """
+    Since we predict a curve for each channel of each pixel in the input image (3 x H x W), we want to make sure that regions have smooth changes in illumination.
+    We do this by computing the sum of the differences in X and Y directions of each curve in the curve map
+    i.e) illumination_loss = SUM( SUM( GRAD_X(curve_map(c, i)) + GRAD_Y(curve_map(c, i)) foreach channel c) foreach iteration i in n )
+    """
+    def __init__(self):
+        super(IlluminationSmoothnessLoss, self).__init__()
+
+    def forward(self, X):
+
+        # TODO the paper's code implementation squares each element in the gradient and adds it all together, which is different from the paper
+
+        # Their code implementation
+        batch_size = X.size()[0]
+        count_h = (X.size()[2] - 1) * X.size()[3]
+        count_w = X.size()[2] * (X.size()[3] - 1)
+        h_tv = torch.pow((X[:, :, 1:, :] - X[:, :, :-1, :]), 2).sum()
+        w_tv = torch.pow((X[:, :, :, 1:] - X[:, :, :, :-1]), 2).sum()
+        ill_loss_code = (h_tv / count_h + w_tv / count_w) / batch_size
+
+        # What I think their paper meant
+        magn_diff_x = torch.sum((X[:, :, :, 1:] - X[:, :, :, :-1])**2, dim=(2, 3))**0.5
+        magn_diff_y = torch.sum((X[:, :, 1:, :] - X[:, :, :-1, :])**2, dim=(2, 3))**0.5
+
+        ill_loss_paper = torch.sum((magn_diff_x + magn_diff_y)**2, dim=1) / (X.shape[1] * X.shape[2] * X.shape[3])
+
+        return ill_loss_code, ill_loss_paper
 
 
 if __name__ == '__main__':
@@ -95,3 +178,11 @@ if __name__ == '__main__':
     expLoss = ExposureControlLoss()
     result = expLoss(images)
     print(f"Exposure Control Loss: {result}")
+
+    spaLoss = SpatialConsistencyLoss()
+    result = spaLoss(images, torch.stack([images[0], images[0], images[0]]))
+    print(f"Spatial Consistency Loss: {result}")
+
+    illLoss = IlluminationSmoothnessLoss()
+    result = illLoss(images)
+    print(f"Illumination Smoothness Loss: {result}")
