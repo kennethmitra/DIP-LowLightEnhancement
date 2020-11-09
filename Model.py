@@ -28,5 +28,21 @@ class EnhancerModel(nn.Module):
         resInput = torch.cat([X2, X5], dim=1)
         X6 = F.relu(self.conv6(resInput))
         resInput = torch.cat([X1, X6], dim=1)
-        X7 = F.relu(self.conv7(resInput))
+        X7 = torch.tanh(self.conv7(resInput))
+        return X7
 
+    def enhance_image(self, image, curves):
+        r1, r2, r3, r4, r5, r6, r7, r8 = torch.split(curves, split_size_or_sections=3, dim=1)
+
+        
+        image = image + r1*(image**2-image)
+        image = image + r2*(image**2-image)
+        image = image + r3*(image**2-image)
+        image = image + r4*(image**2-image)		
+        image = image + r5*(image**2-image)		
+        image = image + r6*(image**2-image)	
+        image = image + r7*(image**2-image)
+        image = image + r8*(image**2-image)
+
+        # image is now = to enhanced image 
+        return image
