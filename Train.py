@@ -190,7 +190,7 @@ def train():
         writer.add_scalar("Metrics/Exposure_Loss", epoch_loss_exp_avg, epoch)
 
 def create_progress_pics(model, device, progress_ds, save_file_path):
-    fig, ax = plt.subplots(len(progress_ds), 4, figsize=(17, 10))
+    fig, ax = plt.subplots(len(progress_ds), 4, figsize=(17, 17))
 
     with torch.no_grad():
         for img_num, image in enumerate(progress_ds):
