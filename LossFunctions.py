@@ -47,7 +47,7 @@ class ExposureControlLoss(nn.Module):
     The exposure control loss is then the average of the absolute values of the differences between the average intensity within a patch and E
     i.e) (1/<num patches>) * SUM(Y - E foreach patch) where Y is the average value of the patch
     """
-    def __init__(self, method, gray_value=0.6, patch_size=16, ):
+    def __init__(self, method, gray_value=0.6, patch_size=16):
         super(ExposureControlLoss, self).__init__()
         self.gray_value = gray_value
         self.patch_size = patch_size
@@ -67,13 +67,8 @@ class ExposureControlLoss(nn.Module):
             exp_loss_orig_code = torch.mean((patch_intensities - self.gray_value)**2)
             return exp_loss_orig_code
 
-        # What I think the code meant to do version
-        if self.method == 2:
-            exp_loss_fixed_code = torch.mean((patch_intensities - self.gray_value)**2, dim=(0, 1, 2))
-            return exp_loss_fixed_code
-
         # Paper version
-        if self.method == 3:
+        if self.method == 2:
             exp_loss_paper = torch.mean(torch.abs(patch_intensities - self.gray_value), dim=(0, 1, 2))
             return exp_loss_paper
 
@@ -163,6 +158,14 @@ class IlluminationSmoothnessLoss(nn.Module):
 
             ill_loss_paper = torch.sum((magn_diff_x + magn_diff_y)**2, dim=1) / (X.shape[1] * X.shape[2] * X.shape[3])
             return ill_loss_paper.mean()
+
+        # See https://github.com/bsun0802/Zero-DCE/blob/cedd6bc1bef935727e3b15d4b328840aa1a0fca4/code/utils.py#L16
+        # https://remi.flamary.com/demos/proxtv.html
+        if self.method == 3:
+            diff_x = ((X[:, :, :, 1:] - X[:, :, :, :-1])).abs().mean(dim=(2, 3))
+            diff_y = ((X[:, :, 1:, :] - X[:, :, :-1, :])).abs().mean(dim=(2, 3))
+            total_variance = (diff_x + diff_y).mean(dim=(0, 1))
+            return total_variance
 
 
 if __name__ == '__main__':
