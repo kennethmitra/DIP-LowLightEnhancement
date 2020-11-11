@@ -31,7 +31,7 @@ def train():
     batch_size = 8
     seed = 42
 
-    run_name = "orig_code_newLoss_7"
+    run_name = "newLoss"
     save_dir = f'./saves/{run_name}'
     SAVE_EPOCH_FREQ = 1
 
@@ -64,7 +64,7 @@ def train():
 
     # Progress Pictures
     PROGRESS_PICS = None
-    progpic_dataset = ImageDataset(image_dir="./images/test_data", image_dim=512, image_list=PROGRESS_PICS)
+    progpic_dataset = ImageDataset(image_dir="./images/progress_pics", image_dim=512, image_list=PROGRESS_PICS)
     progpic_dataloader = DataLoader(progpic_dataset, batch_size=batch_size)
 
     # Log parameters
