@@ -33,7 +33,7 @@ def train():
     batch_size = 8
     seed = 69
 
-    run_name = "expLossSquared5"
+    run_name = "expLossSquared11"
     save_dir = f'./saves/{run_name}'
     SAVE_EPOCH_FREQ = 1
 
@@ -41,9 +41,9 @@ def train():
     # SPA_LOSS_WEIGHT = 12
     # COL_LOSS_WEIGHT = 1.2
     # EXP_LOSS_WEIGHT = 2.74575195313
-    ILL_LOSS_WEIGHT = 7
+    ILL_LOSS_WEIGHT = 7.5 #8.5
     SPA_LOSS_WEIGHT = 8
-    COL_LOSS_WEIGHT = 1
+    COL_LOSS_WEIGHT = 1.8
     EXP_LOSS_WEIGHT = 5
 
     # Create save directory if it doesn't exist
