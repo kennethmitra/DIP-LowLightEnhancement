@@ -164,14 +164,106 @@ class IlluminationSmoothnessLoss(nn.Module):
         if self.method == 3:
             diff_x = ((X[:, :, :, 1:] - X[:, :, :, :-1])).abs().mean(dim=(2, 3))
             diff_y = ((X[:, :, 1:, :] - X[:, :, :-1, :])).abs().mean(dim=(2, 3))
-            total_variance = (diff_x + diff_y).mean(dim=(0, 1))
+            total_variance = (diff_x + diff_y).mean(dim=1).mean(dim=0) * 3
             return total_variance
 
 
 if __name__ == '__main__':
 
+    def alpha_total_variation_copied(A):
+        '''
+        Links: https://remi.flamary.com/demos/proxtv.html
+               https://kornia.readthedocs.io/en/latest/_modules/kornia/losses/total_variation.html#total_variation
+        '''
+        delta_h = A[:, :, 1:, :] - A[:, :, :-1, :]
+        delta_w = A[:, :, :, 1:] - A[:, :, :, :-1]
+
+        # TV used here: L-1 norm, sum R,G,B independently
+        # Other variation of TV loss can be found by google search
+        tv = delta_h.abs().mean((2, 3)) + delta_w.abs().mean((2, 3))
+        loss = torch.mean(tv.sum(1) / (A.shape[1] / 3))
+        return loss
+
+
+    def alpha_total_variation_copied2(A):
+        '''
+        Links: https://remi.flamary.com/demos/proxtv.html
+               https://kornia.readthedocs.io/en/latest/_modules/kornia/losses/total_variation.html#total_variation
+        '''
+        diff_y = (A[:, :, 1:, :] - A[:, :, :-1, :]).abs().mean((2, 3))
+        diff_x = (A[:, :, :, 1:] - A[:, :, :, :-1]).abs().mean((2, 3))
+
+        # TV used here: L-1 norm, sum R,G,B independently
+        # Other variation of TV loss can be found by google search
+        tv = diff_y + diff_x
+        loss = torch.mean(tv.sum(1) / (A.shape[1]))
+        #loss = torch.mean(tv.sum(1) / (A.shape[1] / 3))
+        return loss
+
+
+    def exposure_control_loss_copied(enhances, rsize=16, E=0.6):
+        avg_intensity = F.avg_pool2d(enhances, rsize).mean(1)  # to gray: (R+G+B)/3
+        exp_loss = (avg_intensity - E).abs().mean()
+        return exp_loss
+
+
+    # Color constancy loss via gray-world assumption.   In use.
+    def color_constency_loss_copied(enhances):
+        plane_avg = enhances.mean((2, 3))
+        col_loss = torch.mean((plane_avg[:, 0] - plane_avg[:, 1]) ** 2
+                              + (plane_avg[:, 1] - plane_avg[:, 2]) ** 2
+                              + (plane_avg[:, 2] - plane_avg[:, 0]) ** 2)
+        return col_loss
+
+
+    def spatial_consistency_loss_copied(enhances, originals, to_gray, neigh_diff, rsize=4):
+        # convert to gray
+        enh_gray = F.conv2d(enhances, to_gray)
+        ori_gray = F.conv2d(originals, to_gray)
+
+        # average intensity of local regision
+        enh_avg = F.avg_pool2d(enh_gray, rsize)
+        ori_avg = F.avg_pool2d(ori_gray, rsize)
+
+        # calculate spatial consistency loss via convolution
+        enh_pad = F.pad(enh_avg, (1, 1, 1, 1), mode='replicate')
+        ori_pad = F.pad(ori_avg, (1, 1, 1, 1), mode='replicate')
+        enh_diff = F.conv2d(enh_pad, neigh_diff)
+        ori_diff = F.conv2d(ori_pad, neigh_diff)
+
+        spa_loss = torch.pow((enh_diff - ori_diff), 2).sum(1).mean()
+        return spa_loss
+
+
+    def get_kernels(device):
+        # weighted RGB to gray
+        K1 = torch.tensor([0.3, 0.59, 0.1], dtype=torch.float32).view(1, 3, 1, 1).to(device)
+        # K1 = torch.tensor([1 / 3, 1 / 3, 1 / 3], dtype=torch.float32).view(1, 3, 1, 1).to(device)
+
+        # kernel for neighbor diff
+        K2 = torch.tensor([[[0, -1, 0], [0, 1, 0], [0, 0, 0]],
+                           [[0, 0, 0], [0, 1, 0], [0, -1, 0]],
+                           [[0, 0, 0], [-1, 1, 0], [0, 0, 0]],
+                           [[0, 0, 0], [0, 1, -1], [0, 0, 0]]], dtype=torch.float32)
+        K2 = K2.unsqueeze(1).to(device)
+        return K1, K2
+
+    # Get compute device
+    seed = 42
+    print("-------------------------------GPU INFO--------------------------------------------")
+    print('Available devices ', torch.cuda.device_count())
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print('Current cuda device ', device)
+    if device != "cpu":
+        print('Current CUDA device name ', torch.cuda.get_device_name(device))
+        torch.cuda.manual_seed(seed)
+    print("-----------------------------------------------------------------------------------")
+
+
+    to_gray, neigh_diff = get_kernels(device)
+
     # Load images
-    images_list = glob.glob("./images/*.jpg")
+    images_list = glob.glob("./images/progress_pics/*.jpg")
     crop_size = 256
     images = []
     for image_path in images_list:
@@ -181,22 +273,34 @@ if __name__ == '__main__':
         image = image.permute(2, 0, 1)                                              # Convert to (n,c,h,w) order
         images.append(image)
 
+
+
     # Convert images list to tensor
-    images = torch.stack(images)
+    images = torch.stack(images).to(device)
     print(f"Input dimensions: {list(images.shape)}")
 
-    colLoss = ColorConstancyLoss()
+    colLoss = ColorConstancyLoss(method=2)
     result = colLoss(images)
+    result2 = color_constency_loss_copied(images)
     print(f"Color Constancy Loss: {result}")
+    print(f"Copied Color Constancy Loss: {result2}")
 
-    expLoss = ExposureControlLoss()
+    expLoss = ExposureControlLoss(method=2)
     result = expLoss(images)
+    result2 = exposure_control_loss_copied(images)
     print(f"Exposure Control Loss: {result}")
+    print(f"Copied Exposure Control Loss: {result2}")
 
-    spaLoss = SpatialConsistencyLoss()
-    result = spaLoss(images, torch.stack([images[0], images[0], images[0]]))
+    spaLoss = SpatialConsistencyLoss(device=device)
+    result = spaLoss(images, torch.stack([images[0], images[0], images[0], images[0], images[0]]))
+    result2 = spatial_consistency_loss_copied(images, torch.stack([images[0], images[0], images[0], images[0], images[0]]), neigh_diff=neigh_diff, to_gray=to_gray)
     print(f"Spatial Consistency Loss: {result}")
+    print(f"Copied Spatial Consistency Loss: {result2}")
 
-    illLoss = IlluminationSmoothnessLoss()
+    illLoss = IlluminationSmoothnessLoss(method=3)
     result = illLoss(images)
+    result2 = alpha_total_variation_copied(images)
+    result3 = alpha_total_variation_copied2(images)
     print(f"Illumination Smoothness Loss: {result}")
+    print(f"Their Illumination Smoothness Loss: {result2}")
+    print(f"Their Illumination Smoothness Loss2: {result3}")

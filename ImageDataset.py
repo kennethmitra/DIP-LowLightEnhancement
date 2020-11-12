@@ -1,6 +1,6 @@
 from torch.utils.data import Dataset
 import torch
-from PIL import Image
+from PIL import Image, ImageOps
 import glob
 import numpy as np
 
@@ -21,6 +21,7 @@ class ImageDataset(Dataset):
     
     def __getitem__(self, index):
         image = Image.open(self.image_names[index])
+        image = ImageOps.exif_transpose(image)  # Rotate image based on EXIF Tag
 
         if self.image_dim > 0:
             image.thumbnail((self.image_dim, self.image_dim), Image.ANTIALIAS)

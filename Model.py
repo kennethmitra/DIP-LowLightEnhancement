@@ -9,13 +9,13 @@ class EnhancerModel(nn.Module):
         super(EnhancerModel, self).__init__()
 
         number_f = 32
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=number_f, kernel_size=3, stride=1, padding=1, bias=True)
-        self.conv2 = nn.Conv2d(in_channels=number_f, out_channels=number_f, kernel_size=3, stride=1, padding=1, bias=True)
-        self.conv3 = nn.Conv2d(in_channels=number_f, out_channels=number_f, kernel_size=3, stride=1, padding=1, bias=True)
-        self.conv4 = nn.Conv2d(in_channels=number_f, out_channels=number_f, kernel_size=3, stride=1, padding=1, bias=True)
+        self.conv1 = nn.Conv2d(in_channels=3,            out_channels=number_f, kernel_size=3, stride=1, padding=1, bias=True)
+        self.conv2 = nn.Conv2d(in_channels=number_f,     out_channels=number_f, kernel_size=3, stride=1, padding=1, bias=True)
+        self.conv3 = nn.Conv2d(in_channels=number_f,     out_channels=number_f, kernel_size=3, stride=1, padding=1, bias=True)
+        self.conv4 = nn.Conv2d(in_channels=number_f,     out_channels=number_f, kernel_size=3, stride=1, padding=1, bias=True)
         self.conv5 = nn.Conv2d(in_channels=number_f * 2, out_channels=number_f, kernel_size=3, stride=1, padding=1, bias=True)
         self.conv6 = nn.Conv2d(in_channels=number_f * 2, out_channels=number_f, kernel_size=3, stride=1, padding=1, bias=True)
-        self.conv7 = nn.Conv2d(in_channels=number_f * 2, out_channels=24, kernel_size=3, stride=1, padding=1, bias=True)
+        self.conv7 = nn.Conv2d(in_channels=number_f * 2, out_channels=24,       kernel_size=3, stride=1, padding=1, bias=True)
 
     def forward(self, X):
         X1 = F.relu(self.conv1(X))

@@ -23,22 +23,28 @@ def train():
     # ============================
     #       HYPERPARAMETERS
     # ============================
-    lr = 1e-4
-    weight_decay = 1e-4
+    #lr = 1e-4
+    #weight_decay = 1e-4
+    lr = 1e-3
+    weight_decay = 0
     epochs = 200
     grad_clip = 0.1
     do_grad_clip = False
     batch_size = 8
-    seed = 42
+    seed = 69
 
-    run_name = "newLoss"
+    run_name = "expLossSquared5"
     save_dir = f'./saves/{run_name}'
     SAVE_EPOCH_FREQ = 1
 
-    ILL_LOSS_WEIGHT = 42.5
-    SPA_LOSS_WEIGHT = 12
-    COL_LOSS_WEIGHT = 1.8
-    EXP_LOSS_WEIGHT = 2.2
+    # ILL_LOSS_WEIGHT = 15
+    # SPA_LOSS_WEIGHT = 12
+    # COL_LOSS_WEIGHT = 1.2
+    # EXP_LOSS_WEIGHT = 2.74575195313
+    ILL_LOSS_WEIGHT = 7
+    SPA_LOSS_WEIGHT = 8
+    COL_LOSS_WEIGHT = 1
+    EXP_LOSS_WEIGHT = 5
 
     # Create save directory if it doesn't exist
     Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -64,7 +70,7 @@ def train():
 
     # Progress Pictures
     PROGRESS_PICS = None
-    progpic_dataset = ImageDataset(image_dir="./images/progress_pics", image_dim=512, image_list=PROGRESS_PICS)
+    progpic_dataset = ImageDataset(image_dir="./images/progress_pics", image_dim=256, image_list=PROGRESS_PICS)
     progpic_dataloader = DataLoader(progpic_dataset, batch_size=batch_size)
 
     # Log parameters
@@ -95,7 +101,7 @@ def train():
 
     # Loss Functions
     color_loss = ColorConstancyLoss(method=2)  # Using method 2 since I think it's easier to backprop
-    exposure_loss = ExposureControlLoss(gray_value=0.6, patch_size=16, method=2)   # Using method 2 based on bsun0802's code
+    exposure_loss = ExposureControlLoss(gray_value=0.5, patch_size=16, method=1)   # Using method 2 based on bsun0802's code
     spatial_loss = SpatialConsistencyLoss(device=device)
     illumination_loss = IlluminationSmoothnessLoss(method=3)  # From bsun0802's code
     
@@ -200,9 +206,9 @@ def create_progress_pics(model, device, progress_ds, save_file_path):
 
             curves = torch.stack(torch.split(curves, split_size_or_sections=3, dim=1), dim=1)
 
-            image = image.squeeze().permute(1, 2, 0).cpu().flip(dims=[0, 1])
-            curves = (curves.squeeze().permute(0, 2, 3, 1).mean(dim=0).cpu()).flip(dims=[0, 1]) / 2 + 0.5
-            enhanced_image = enhanced_image.squeeze().permute(1, 2, 0).cpu().flip(dims=[0, 1])
+            image = image.squeeze().permute(1, 2, 0).cpu()
+            curves = (curves.squeeze().permute(0, 2, 3, 1).mean(dim=0).cpu())/ 2 + 0.5
+            enhanced_image = enhanced_image.squeeze().permute(1, 2, 0).cpu()
 
             ax[img_num][0].imshow(image)
             ax[img_num][0].set_title("Original")
@@ -214,6 +220,7 @@ def create_progress_pics(model, device, progress_ds, save_file_path):
             ax[img_num][3].set_title("Enhanced Image")
 
     fig.savefig(save_file_path)
+    plt.close(fig)
     return torch.from_numpy(np.array(Image.open(save_file_path))[:, :, :3]).permute(2, 0, 1)
 
 
