@@ -32,17 +32,17 @@ def train():
     do_grad_clip = False
     batch_size = 8
     seed = 69
-    FORCE_CPU = True
+    FORCE_CPU = False
 
-    run_name = "col_var_loss_enabled1"
+    run_name = "new_WB_loss_test2"
     save_dir = f'./saves/{run_name}'
     SAVE_EPOCH_FREQ = 1
 
     ILL_LOSS_WEIGHT = 7.5
     SPA_LOSS_WEIGHT = 8
     COL_LOSS_WEIGHT = 1.2
-    EXP_LOSS_WEIGHT = 5
-    COLVAR_LOSS_WEIGHT = 3
+    EXP_LOSS_WEIGHT = 5.5
+    COLVAR_LOSS_WEIGHT = 5
 
     # Create save directory if it doesn't exist
     Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -101,8 +101,8 @@ def train():
     
 
     # Loss Functions
-    color_loss = ColorConstancyLoss(method=2)  # Using method 2 since I think it's easier to backprop
-    exposure_loss = ExposureControlLoss(gray_value=0.5, patch_size=16, method=1)   # Using method 2 based on bsun0802's code
+    color_loss = ColorConstancyLoss(method=3, device=device, patch_size=16)  # Using my custom WB loss
+    exposure_loss = ExposureControlLoss(gray_value=0.5, patch_size=16, method=1, device=device)   # Using method 2 based on bsun0802's code
     spatial_loss = SpatialConsistencyLoss(device=device)
     illumination_loss = IlluminationSmoothnessLoss(method=3)  # From bsun0802's code
     colvar_loss = ColorVarianceLoss()

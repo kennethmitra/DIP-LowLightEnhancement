@@ -12,33 +12,73 @@ class ColorConstancyLoss(nn.Module):
     This is because in an ideal image, the average value of all pixels over all channels should approach gray (where all channels have same average value)
     i.e) SUM( (<avg of channel p> - <avg of channel q>)^2 [foreach (p,q) in {(R, G), (R, B), (G, B)}] )
     """
-    def __init__(self, method):
+    def __init__(self, method, device, patch_size=16):
         super(ColorConstancyLoss, self).__init__()
         self.method = method
+        self.avgpool = nn.AvgPool2d(patch_size).to(device)
+        self.upsample = nn.Upsample(scale_factor=patch_size, mode='nearest').to(device)
 
     def forward(self, X):
 
-        # Find the mean of each channel in X
-        mean_r, mean_g, mean_b = torch.mean(X, dim=(2, 3)).split(split_size=1, dim=1)
-
-        # Find squared difference between each combination
-        diff_rg = (mean_r - mean_g)**2
-        diff_rb = (mean_r - mean_b)**2
-        diff_gb = (mean_g - mean_b)**2
-
-        # TODO examine which of the following versions perform better
-
         # Here's the version according to their code
         if self.method == 1:
+            # Find the mean of each channel in X
+            mean_r, mean_g, mean_b = torch.mean(X, dim=(2, 3)).split(split_size=1, dim=1)
+
+            # Find squared difference between each combination
+            diff_rg = (mean_r - mean_g) ** 2
+            diff_rb = (mean_r - mean_b) ** 2
+            diff_gb = (mean_g - mean_b) ** 2
             col_loss_code = (diff_rg**2 + diff_rb**2 + diff_gb**2)**0.5
             return col_loss_code.mean()
 
         # Here's the version according to the math in their paper
         if self.method == 2:
+            # Find the mean of each channel in X
+            mean_r, mean_g, mean_b = torch.mean(X, dim=(2, 3)).split(split_size=1, dim=1)
+
+            # Find squared difference between each combination
+            diff_rg = (mean_r - mean_g) ** 2
+            diff_rb = (mean_r - mean_b) ** 2
+            diff_gb = (mean_g - mean_b) ** 2
             col_loss_paper = diff_rg + diff_rb + diff_gb
             return col_loss_paper.mean()
 
+        if self.method == 3:
+            """
+            The problem with their color constancy (white balance) loss is it muddies patches of large constant color 
+            to gray like sky or buildings. This is because those images do not fit the gray world hypothesis. 
+            We attempt to correct this by finding the average rgb values through an average weighted by the region's 
+            variance. Thus the regions with more constant color will be weighted less.
+            """
+
+            # Gaussian Blur Image with radius 2 (To avoid blocky artifacts)
+
+            # Get average of each region
+            region_avgs = self.avgpool(X)
+            # Upsample averages so every pixel in region is the average
+            region_avgs_upsampled = self.upsample(region_avgs)
+            # Subtract average of region from each pixel and square to get variance
+            variances = (X - region_avgs_upsampled)**2
+            # Average the variances within each region to get per region variance
+            variances = self.avgpool(variances)
+            # Multiply average R, G, B of each region by their variance.
+            # Then add all the regions together and divide by total variance.
+            weighted_avgs = torch.sum(region_avgs * variances, dim=(2, 3)) / torch.sum(variances, dim=(2, 3))
+
+            mean_r, mean_g, mean_b = weighted_avgs.split(split_size=1, dim=1)
+            diff_rg = (mean_r - mean_g) ** 2
+            diff_rb = (mean_r - mean_b) ** 2
+            diff_gb = (mean_g - mean_b) ** 2
+
+            col_loss_custom = diff_rg + diff_rb + diff_gb
+            return col_loss_custom.mean()
+
 class ColorVarianceLoss(nn.Module):
+    """
+    This custom loss function returns the negative of the average variance in R, G, B values.
+    It attempts to spread out the color histogram to make images more vivid.
+    """
     def __init__(self):
         super(ColorVarianceLoss, self).__init__()
 
@@ -56,14 +96,14 @@ class ExposureControlLoss(nn.Module):
     The exposure control loss is then the average of the absolute values of the differences between the average intensity within a patch and E
     i.e) (1/<num patches>) * SUM(Y - E foreach patch) where Y is the average value of the patch
     """
-    def __init__(self, method, gray_value=0.6, patch_size=16):
+    def __init__(self, method, device, gray_value=0.6, patch_size=16):
         super(ExposureControlLoss, self).__init__()
         self.gray_value = gray_value
         self.patch_size = patch_size
         self.method = method
 
         # AvgPool2d is used to compute the average value of all non-overlapping patches
-        self.pool = nn.AvgPool2d(kernel_size=patch_size)
+        self.pool = nn.AvgPool2d(kernel_size=patch_size).to(device)
 
     def forward(self, X):
         X_grayscale = torch.mean(X, dim=1)  # Average over the color channel | Output dims: n,h,w
@@ -89,7 +129,7 @@ class SpatialConsistencyLoss(nn.Module):
     """
     def __init__(self, device):
         super(SpatialConsistencyLoss, self).__init__()
-        self.pool = nn.AvgPool2d(4)
+        self.pool = nn.AvgPool2d(4).to(device)
         self.kernel_left = torch.FloatTensor([[0, 0, 0],
                                               [-1, 1, 0],
                                               [0, 0, 0]]).unsqueeze(0).unsqueeze(0).to(device)
@@ -288,13 +328,13 @@ if __name__ == '__main__':
     images = torch.stack(images).to(device)
     print(f"Input dimensions: {list(images.shape)}")
 
-    colLoss = ColorConstancyLoss(method=2)
+    colLoss = ColorConstancyLoss(method=2, device=device)
     result = colLoss(images)
     result2 = color_constency_loss_copied(images)
     print(f"Color Constancy Loss: {result}")
     print(f"Copied Color Constancy Loss: {result2}")
 
-    expLoss = ExposureControlLoss(method=2)
+    expLoss = ExposureControlLoss(method=2, device=device)
     result = expLoss(images)
     result2 = exposure_control_loss_copied(images)
     print(f"Exposure Control Loss: {result}")
@@ -320,3 +360,9 @@ if __name__ == '__main__':
     colVarLoss = ColorVarianceLoss()
     result = colVarLoss(images)
     print(f"Col Var Loss: {result}")
+
+    print()
+    print()
+    customWB = ColorConstancyLoss(method=3, patch_size=16, device=device)
+    result = customWB(images)
+    print(f"Custom WB: {result}")
