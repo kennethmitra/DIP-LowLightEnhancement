@@ -38,6 +38,15 @@ class ColorConstancyLoss(nn.Module):
             col_loss_paper = diff_rg + diff_rb + diff_gb
             return col_loss_paper.mean()
 
+class ColorVarianceLoss(nn.Module):
+    def __init__(self):
+        super(ColorVarianceLoss, self).__init__()
+
+    def forward(self, X):
+        col_means = torch.mean(X, dim=(2, 3), keepdim=True)
+        col_variance = (X - col_means) ** 2
+        col_variance = torch.mean(col_variance, dim=(1, 2, 3))
+        return col_variance.mean(dim=0)
 
 class ExposureControlLoss(nn.Module):
     """
@@ -304,3 +313,10 @@ if __name__ == '__main__':
     print(f"Illumination Smoothness Loss: {result}")
     print(f"Their Illumination Smoothness Loss: {result2}")
     print(f"Their Illumination Smoothness Loss2: {result3}")
+
+
+    print()
+    print()
+    colVarLoss = ColorVarianceLoss()
+    result = colVarLoss(images)
+    print(f"Col Var Loss: {result}")
