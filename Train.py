@@ -33,7 +33,7 @@ def train():
     batch_size = 8
     seed = 69
 
-    run_name = "col_var_loss1"
+    run_name = "col_var_loss_enabled1"
     save_dir = f'./saves/{run_name}'
     SAVE_EPOCH_FREQ = 1
 
@@ -102,7 +102,7 @@ def train():
     exposure_loss = ExposureControlLoss(gray_value=0.5, patch_size=16, method=1)   # Using method 2 based on bsun0802's code
     spatial_loss = SpatialConsistencyLoss(device=device)
     illumination_loss = IlluminationSmoothnessLoss(method=3)  # From bsun0802's code
-    colvar_loss = colVarLoss()
+    colvar_loss = ColorVarianceLoss()
     
     # Datasets
     train_dataset = ImageDataset(image_dir="./images/train_data", image_dim=256)
@@ -131,7 +131,7 @@ def train():
             exposure_loss_val   = EXP_LOSS_WEIGHT * torch.mean(exposure_loss(enhanced_image))
             colvar_loss_val     = COLVAR_LOSS_WEIGHT * torch.mean(colvar_loss(enhanced_image))
 
-            loss = illum_loss_val + spatial_loss_val + color_loss_val + exposure_loss_val
+            loss = illum_loss_val + spatial_loss_val + color_loss_val + exposure_loss_val + colvar_loss_val
 
             optimizer.zero_grad()
             loss.backward()
