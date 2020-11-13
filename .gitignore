@@ -142,3 +142,7 @@ cython_debug/
 
 # VSCode
 .vscode/
+
+# Project Outputs
+saves/
+runs/
