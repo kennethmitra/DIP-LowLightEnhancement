@@ -34,15 +34,15 @@ def train():
     seed = 69
     FORCE_CPU = False
 
-    run_name = "new_WB_loss_test2"
+    run_name = "new_WB_loss_test_noColvar_epsilon1"
     save_dir = f'./saves/{run_name}'
     SAVE_EPOCH_FREQ = 1
 
     ILL_LOSS_WEIGHT = 7.5
     SPA_LOSS_WEIGHT = 8
-    COL_LOSS_WEIGHT = 1.2
-    EXP_LOSS_WEIGHT = 5.5
-    COLVAR_LOSS_WEIGHT = 5
+    COL_LOSS_WEIGHT = 2.2
+    EXP_LOSS_WEIGHT = 5
+    COLVAR_LOSS_WEIGHT = 0
 
     # Create save directory if it doesn't exist
     Path(save_dir).mkdir(parents=True, exist_ok=True)

@@ -12,9 +12,10 @@ class ColorConstancyLoss(nn.Module):
     This is because in an ideal image, the average value of all pixels over all channels should approach gray (where all channels have same average value)
     i.e) SUM( (<avg of channel p> - <avg of channel q>)^2 [foreach (p,q) in {(R, G), (R, B), (G, B)}] )
     """
-    def __init__(self, method, device, patch_size=16):
+    def __init__(self, method, device, patch_size=16, epsilon=1e-7):
         super(ColorConstancyLoss, self).__init__()
         self.method = method
+        self.epsilon = epsilon
         self.avgpool = nn.AvgPool2d(patch_size).to(device)
         self.upsample = nn.Upsample(scale_factor=patch_size, mode='nearest').to(device)
 
@@ -61,7 +62,7 @@ class ColorConstancyLoss(nn.Module):
             # Subtract average of region from each pixel and square to get variance
             variances = (X - region_avgs_upsampled)**2
             # Average the variances within each region to get per region variance
-            variances = self.avgpool(variances)
+            variances = self.avgpool(variances) + self.epsilon
             # Multiply average R, G, B of each region by their variance.
             # Then add all the regions together and divide by total variance.
             weighted_avgs = torch.sum(region_avgs * variances, dim=(2, 3)) / torch.sum(variances, dim=(2, 3))
@@ -366,3 +367,5 @@ if __name__ == '__main__':
     customWB = ColorConstancyLoss(method=3, patch_size=16, device=device)
     result = customWB(images)
     print(f"Custom WB: {result}")
+
+
