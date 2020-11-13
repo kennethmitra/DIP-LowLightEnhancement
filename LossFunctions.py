@@ -46,7 +46,7 @@ class ColorVarianceLoss(nn.Module):
         col_means = torch.mean(X, dim=(2, 3), keepdim=True)
         col_variance = (X - col_means) ** 2
         col_variance = torch.mean(col_variance, dim=(1, 2, 3))
-        return col_variance.mean(dim=0)
+        return -col_variance.mean(dim=0)
 
 class ExposureControlLoss(nn.Module):
     """
