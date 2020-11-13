@@ -32,6 +32,7 @@ def train():
     do_grad_clip = False
     batch_size = 8
     seed = 69
+    FORCE_CPU = True
 
     run_name = "col_var_loss_enabled1"
     save_dir = f'./saves/{run_name}'
@@ -53,9 +54,9 @@ def train():
     # Get compute device
     print("-------------------------------GPU INFO--------------------------------------------")
     print('Available devices ', torch.cuda.device_count())
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() and not FORCE_CPU else "cpu")
     print('Current cuda device ', device)
-    if device != "cpu":
+    if device != torch.device("cpu"):
         print('Current CUDA device name ', torch.cuda.get_device_name(device))
         torch.cuda.manual_seed(seed)
     print("-----------------------------------------------------------------------------------")
@@ -86,6 +87,8 @@ def train():
     writer.add_text("Hyperparams/col_loss_weight", str(COL_LOSS_WEIGHT), 0)
     writer.add_text("Hyperparams/exp_loss_weight", str(EXP_LOSS_WEIGHT), 0)
     writer.add_text("Hyperparams/colvar_loss_weight", str(COLVAR_LOSS_WEIGHT), 0)
+
+    writer.add_text("Info/FORCE_CPU", str(FORCE_CPU), 0)
 
     # Create Model
     model = EnhancerModel()
