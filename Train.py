@@ -34,7 +34,7 @@ def train():
     seed = 69
     FORCE_CPU = False
 
-    run_name = "new_WB_loss_test_noColvar_epsilon1"
+    run_name = "new_WB_loss_test_noColvar_lower_epsilon_patch2"
     save_dir = f'./saves/{run_name}'
     SAVE_EPOCH_FREQ = 1
 
@@ -101,7 +101,7 @@ def train():
     
 
     # Loss Functions
-    color_loss = ColorConstancyLoss(method=3, device=device, patch_size=16)  # Using my custom WB loss
+    color_loss = ColorConstancyLoss(method=3, device=device, patch_size=8, epsilon=1e-7)  # Using my custom WB loss
     exposure_loss = ExposureControlLoss(gray_value=0.5, patch_size=16, method=1, device=device)   # Using method 2 based on bsun0802's code
     spatial_loss = SpatialConsistencyLoss(device=device)
     illumination_loss = IlluminationSmoothnessLoss(method=3)  # From bsun0802's code
