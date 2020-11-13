@@ -23,13 +23,11 @@ if device != "cpu":
 print("-----------------------------------------------------------------------------------")
 
 # Load Saved Model
-save_file = "./saves/orig_code/epo41.save"
+save_file = "./saves/expLossSquared11/epo1.save"
 model_state = torch.load(save_file)['model_state']
 
 model = EnhancerModel().to(device)
 model.load_state_dict(model_state)
-
-ill_loss = IlluminationSmoothnessLoss(method=1)
 
 fig, ax = plt.subplots(len(test_dataset), 4, figsize=(17, 10))
 
@@ -37,14 +35,13 @@ with torch.no_grad():
     for img_num, image in enumerate(test_dataset):
         image = image.unsqueeze(dim=0).to(device)  # Add batch dimension and send to GPU
         curves = model(image)
-        ill_loss_val = ill_loss(curves)
         enhanced_image = model.enhance_image(image, curves)
 
         curves = torch.stack(torch.split(curves, split_size_or_sections=3, dim=1), dim=1)
 
         image = image.squeeze().permute(1, 2, 0).cpu().flip(dims=[0, 1])
-        curves = (curves.squeeze().permute(0, 2, 3, 1).mean(dim=0).cpu()).flip(dims=[0, 1])/2+0.5
-        enhanced_image = enhanced_image.squeeze().permute(1, 2, 0).cpu().flip(dims=[0, 1])
+        curves = (curves.squeeze().permute(0, 2, 3, 1).mean(dim=0).cpu())/2+0.5
+        enhanced_image = enhanced_image.squeeze().permute(1, 2, 0).cpu()
 
 
         ax[img_num][0].imshow(image)
@@ -55,8 +52,6 @@ with torch.no_grad():
         ax[img_num][2].set_title("Grayscale Curves")
         ax[img_num][3].imshow(enhanced_image)
         ax[img_num][3].set_title("Enhanced Image")
-
-        print(f"Ill_Loss: {ill_loss_val}")
 
         enhanced_image = enhanced_image.flip(dims=[0, 1])
         # save_image(enhanced_image, f"{SAVE_DIR}/{Path(test_dataset.image_names[img_num]).stem}_enhanced.jpg")
