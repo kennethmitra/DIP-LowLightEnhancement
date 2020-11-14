@@ -2,6 +2,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
+from fastiqa.all import *
+
 import glob
 from PIL import Image
 import numpy as np
@@ -218,6 +220,26 @@ class IlluminationSmoothnessLoss(nn.Module):
             return total_variance
 
 
+class IQALoss(nn.Module):
+    def __init__(self, method, block_size=(5, 5)):
+        super(IQALoss, self).__init__()
+        self.method = method
+        self.block_size = block_size
+
+        data = Im2MOS(TestImages)
+        model = RoIPoolModel()
+
+        self.learn = RoIPoolLearner(data, model, path='.')
+        self.learn.load('RoIPoolModel')
+
+    def forward(self, enhanced, original):
+        quals_enhanced = []
+        quals_original = []
+        for i in range(enhanced.shape[0]):
+            quals_enhanced.append(self.learn.predict_quality_map(enhanced[i, :, :, :], self.block_size).global_score)
+            quals_original.append(self.learn.predict_quality_map(original[i, :, :, :], self.block_size).global_score)
+        return -1 * (qmap_enhanced.global_score - qmap_original.global_score)
+
 if __name__ == '__main__':
 
     def alpha_total_variation_copied(A):
@@ -368,4 +390,11 @@ if __name__ == '__main__':
     result = customWB(images)
     print(f"Custom WB: {result}")
 
+    print()
+    print()
+    iqaLoss = IQALoss(0)
+    enhanced = images.cpu()
+    original = torch.stack([images[0], images[0], images[0], images[0], images[0]]).cpu()
 
+    result = iqaLoss(enhanced, original)
+    print(f"IQA Loss: {result}")

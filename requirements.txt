@@ -43,3 +43,5 @@ Werkzeug==1.0.1
 wrapt==1.12.1
 
 Flask~=1.1.2
+
+fastai==1.0.60
