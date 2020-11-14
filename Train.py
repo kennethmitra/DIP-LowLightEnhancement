@@ -34,15 +34,15 @@ def train():
     seed = 69
     FORCE_CPU = False
 
-    run_name = "new_WB_loss_test_noColvar_lower_epsilon_patch2"
+    run_name = "uhoh_test_gamma_A_1"
     save_dir = f'./saves/{run_name}'
     SAVE_EPOCH_FREQ = 1
 
     ILL_LOSS_WEIGHT = 7.5
-    SPA_LOSS_WEIGHT = 8
-    COL_LOSS_WEIGHT = 2.2
-    EXP_LOSS_WEIGHT = 5
-    COLVAR_LOSS_WEIGHT = 0
+    SPA_LOSS_WEIGHT = 10
+    COL_LOSS_WEIGHT = 2
+    EXP_LOSS_WEIGHT = 4.4
+    COLVAR_LOSS_WEIGHT = 1
 
     # Create save directory if it doesn't exist
     Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -101,7 +101,7 @@ def train():
     
 
     # Loss Functions
-    color_loss = ColorConstancyLoss(method=3, device=device, patch_size=8, epsilon=1e-7)  # Using my custom WB loss
+    color_loss = ColorConstancyLoss(method=4, device=device, patch_size=8, epsilon=5e-7, gammas=(0.5, 2))  # Using my custom WB loss
     exposure_loss = ExposureControlLoss(gray_value=0.5, patch_size=16, method=1, device=device)   # Using method 2 based on bsun0802's code
     spatial_loss = SpatialConsistencyLoss(device=device)
     illumination_loss = IlluminationSmoothnessLoss(method=3)  # From bsun0802's code
@@ -130,7 +130,7 @@ def train():
             
             illum_loss_val      = ILL_LOSS_WEIGHT * torch.mean(illumination_loss(curves))
             spatial_loss_val    = SPA_LOSS_WEIGHT * torch.mean(spatial_loss(enhanced_image, image))
-            color_loss_val      = COL_LOSS_WEIGHT * torch.mean(color_loss(enhanced_image))
+            color_loss_val      = COL_LOSS_WEIGHT * torch.mean(color_loss(enhanced_image, orig=image))
             exposure_loss_val   = EXP_LOSS_WEIGHT * torch.mean(exposure_loss(enhanced_image))
             colvar_loss_val     = COLVAR_LOSS_WEIGHT * torch.mean(colvar_loss(enhanced_image))
 

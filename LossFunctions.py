@@ -12,19 +12,20 @@ class ColorConstancyLoss(nn.Module):
     This is because in an ideal image, the average value of all pixels over all channels should approach gray (where all channels have same average value)
     i.e) SUM( (<avg of channel p> - <avg of channel q>)^2 [foreach (p,q) in {(R, G), (R, B), (G, B)}] )
     """
-    def __init__(self, method, device, patch_size=16, epsilon=1e-7):
+    def __init__(self, method, device, patch_size=16, epsilon=1e-7, gammas=(0.5, 2)):
         super(ColorConstancyLoss, self).__init__()
         self.method = method
         self.epsilon = epsilon
+        self.gammas = gammas
         self.avgpool = nn.AvgPool2d(patch_size).to(device)
         self.upsample = nn.Upsample(scale_factor=patch_size, mode='nearest').to(device)
 
-    def forward(self, X):
+    def forward(self, enhanced, orig=None):
 
         # Here's the version according to their code
         if self.method == 1:
             # Find the mean of each channel in X
-            mean_r, mean_g, mean_b = torch.mean(X, dim=(2, 3)).split(split_size=1, dim=1)
+            mean_r, mean_g, mean_b = torch.mean(enhanced, dim=(2, 3)).split(split_size=1, dim=1)
 
             # Find squared difference between each combination
             diff_rg = (mean_r - mean_g) ** 2
@@ -36,7 +37,7 @@ class ColorConstancyLoss(nn.Module):
         # Here's the version according to the math in their paper
         if self.method == 2:
             # Find the mean of each channel in X
-            mean_r, mean_g, mean_b = torch.mean(X, dim=(2, 3)).split(split_size=1, dim=1)
+            mean_r, mean_g, mean_b = torch.mean(enhanced, dim=(2, 3)).split(split_size=1, dim=1)
 
             # Find squared difference between each combination
             diff_rg = (mean_r - mean_g) ** 2
@@ -56,11 +57,11 @@ class ColorConstancyLoss(nn.Module):
             # Gaussian Blur Image with radius 2 (To avoid blocky artifacts)
 
             # Get average of each region
-            region_avgs = self.avgpool(X)
+            region_avgs = self.avgpool(enhanced)
             # Upsample averages so every pixel in region is the average
             region_avgs_upsampled = self.upsample(region_avgs)
             # Subtract average of region from each pixel and square to get variance
-            variances = (X - region_avgs_upsampled)**2
+            variances = (enhanced - region_avgs_upsampled) ** 2
             # Average the variances within each region to get per region variance
             variances = self.avgpool(variances) + self.epsilon
             # Multiply average R, G, B of each region by their variance.
@@ -68,6 +69,42 @@ class ColorConstancyLoss(nn.Module):
             weighted_avgs = torch.sum(region_avgs * variances, dim=(2, 3)) / torch.sum(variances, dim=(2, 3))
 
             mean_r, mean_g, mean_b = weighted_avgs.split(split_size=1, dim=1)
+
+            mean_r = mean_r
+            mean_g = mean_g * 1.05
+            mean_b = mean_b / 0.99
+
+            diff_rg = (mean_r - mean_g) ** 2
+            diff_rb = (mean_r - mean_b) ** 2
+            diff_gb = (mean_g - mean_b) ** 2
+
+            col_loss_custom = diff_rg + diff_rb + diff_gb
+            return col_loss_custom.mean()
+
+        if self.method == 4:
+            assert orig is not None
+            # Gamma enhance original image (To help enhance dark images)
+            if self.gammas is not None:
+                orig = (orig**self.gammas[0] + orig**self.gammas[1]) / 2
+            # Get average of each region
+            region_avgs = self.avgpool(orig)
+            # Upsample averages so every pixel in region is the average
+            region_avgs_upsampled = self.upsample(region_avgs)
+            # Subtract average of region from each pixel and square to get variance
+            variances = (orig - region_avgs_upsampled) ** 2
+            # Average the variances within each region to get per region variance
+            variances = self.avgpool(variances) + self.epsilon
+            # Multiply average R, G, B of each region by their variance.
+            # Then add all the regions together and divide by total variance.
+            region_avgs = self.avgpool(enhanced)
+            weighted_avgs = torch.sum(region_avgs * variances, dim=(2, 3)) / torch.sum(variances, dim=(2, 3))
+
+            mean_r, mean_g, mean_b = weighted_avgs.split(split_size=1, dim=1)
+
+            mean_r = mean_r
+            mean_g = mean_g
+            mean_b = mean_b
+
             diff_rg = (mean_r - mean_g) ** 2
             diff_rb = (mean_r - mean_b) ** 2
             diff_gb = (mean_g - mean_b) ** 2
