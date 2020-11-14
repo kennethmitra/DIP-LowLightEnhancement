@@ -34,14 +34,14 @@ def train():
     seed = 69
     FORCE_CPU = False
 
-    run_name = "uhoh_test_gamma_A_1"
+    run_name = "uhoh_test_gamma_A_2"
     save_dir = f'./saves/{run_name}'
     SAVE_EPOCH_FREQ = 1
 
     ILL_LOSS_WEIGHT = 7.5
     SPA_LOSS_WEIGHT = 10
-    COL_LOSS_WEIGHT = 2
-    EXP_LOSS_WEIGHT = 4.4
+    COL_LOSS_WEIGHT = 2.6
+    EXP_LOSS_WEIGHT = 3.8
     COLVAR_LOSS_WEIGHT = 1
 
     # Create save directory if it doesn't exist
