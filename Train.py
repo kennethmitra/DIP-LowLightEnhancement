@@ -19,7 +19,7 @@ def weights_init(m):
 
 def train():
     writer = SummaryWriter()
-    
+    torch.autograd.set_detect_anomaly(True)
     # ============================
     #       HYPERPARAMETERS
     # ============================
@@ -34,7 +34,7 @@ def train():
     seed = 69
     FORCE_CPU = False
 
-    run_name = "uhoh_test_gamma_A_2"
+    run_name = "image_qual_loss_A_1"
     save_dir = f'./saves/{run_name}'
     SAVE_EPOCH_FREQ = 1
 
@@ -43,6 +43,7 @@ def train():
     COL_LOSS_WEIGHT = 2.6
     EXP_LOSS_WEIGHT = 3.8
     COLVAR_LOSS_WEIGHT = 1
+    IQ_LOSS_WEIGHT = 5
 
     # Create save directory if it doesn't exist
     Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -87,6 +88,7 @@ def train():
     writer.add_text("Hyperparams/col_loss_weight", str(COL_LOSS_WEIGHT), 0)
     writer.add_text("Hyperparams/exp_loss_weight", str(EXP_LOSS_WEIGHT), 0)
     writer.add_text("Hyperparams/colvar_loss_weight", str(COLVAR_LOSS_WEIGHT), 0)
+    writer.add_text("Hyperparams/iq_loss_weight", str(IQ_LOSS_WEIGHT), 0)
 
     writer.add_text("Info/FORCE_CPU", str(FORCE_CPU), 0)
 
@@ -106,6 +108,7 @@ def train():
     spatial_loss = SpatialConsistencyLoss(device=device)
     illumination_loss = IlluminationSmoothnessLoss(method=3)  # From bsun0802's code
     colvar_loss = ColorVarianceLoss()
+    iq_loss = ImageQualityLoss(method=2, device=device, blk_size=(3, 5))  # From https://github.com/baidut/paq2piq/blob/master/demo.ipynb
     
     # Datasets
     train_dataset = ImageDataset(image_dir="./images/train_data", image_dim=256)
@@ -123,6 +126,8 @@ def train():
         loss_batch_col = []
         loss_batch_exp = []
         loss_batch_colvar = []
+        loss_batch_iq = []
+
         for batch_num, image in enumerate(train_dataloader):
             image = image.to(device)
             curves = model(image)
@@ -133,8 +138,9 @@ def train():
             color_loss_val      = COL_LOSS_WEIGHT * torch.mean(color_loss(enhanced_image, orig=image))
             exposure_loss_val   = EXP_LOSS_WEIGHT * torch.mean(exposure_loss(enhanced_image))
             colvar_loss_val     = COLVAR_LOSS_WEIGHT * torch.mean(colvar_loss(enhanced_image))
+            iq_loss_val         = IQ_LOSS_WEIGHT * torch.mean(iq_loss(enhanced=enhanced_image, original=image))
 
-            loss = illum_loss_val + spatial_loss_val + color_loss_val + exposure_loss_val + colvar_loss_val
+            loss = illum_loss_val + spatial_loss_val + color_loss_val + exposure_loss_val + colvar_loss_val + iq_loss_val
 
             optimizer.zero_grad()
             loss.backward()
@@ -151,6 +157,7 @@ def train():
             loss_batch_col.append(color_loss_val.detach().item())
             loss_batch_exp.append(exposure_loss_val.detach().item())
             loss_batch_colvar.append(colvar_loss_val.detach().item())
+            loss_batch_iq.append(iq_loss_val.detach().item())
 
 
         epoch_loss_avg = np.asarray(loss_batch).mean()
@@ -159,6 +166,7 @@ def train():
         epoch_loss_col_avg = np.asarray(loss_batch_col).mean()
         epoch_loss_exp_avg = np.asarray(loss_batch_exp).mean()
         epoch_loss_colvar_avg = np.asarray(loss_batch_colvar).mean()
+        epoch_loss_iq_avg = np.asarray(loss_batch_iq).mean()
 
         # Checkpoint
         if epoch % SAVE_EPOCH_FREQ == 0 or epoch == epochs:
@@ -170,25 +178,7 @@ def train():
                 'optimizer_params': optimizer.state_dict(),
                 'model_state': model.state_dict(),
                 }, f'{save_dir}/epo{epoch}.save')
-            # Generate Progress Pics
-            # progress_images = None
-            # with torch.no_grad():
-            #     for batch in progpic_dataloader:
-            #         batch = batch.to(device)
-            #         curves = model(batch)
-            #         enhanced_images = model.enhance_image(batch, curves)
-            #
-            #         if progress_images is None:
-            #             progress_images = enhanced_images
-            #         else:
-            #             progress_images = torch.cat([progress_images, enhanced_images], dim=0)
-            #
-            # # Convert images to grid
-            # grid_img = torchvision.utils.make_grid(progress_images, padding=2, normalize=False)
 
-            # Save images
-            # torchvision.utils.save_image(grid_img, f'{save_dir}/progress_pics_epo{epoch}.png')
-            # writer.add_image("fixed_inputs", grid_img, epoch)
             progpic_filepath = f"{save_dir}/progress_epo{epoch}.png"
             plt_tensor = create_progress_pics(model, device, progpic_dataset, save_file_path=progpic_filepath)
             writer.add_image("Progress_Pics", plt_tensor, epoch)
@@ -201,6 +191,7 @@ def train():
         writer.add_scalar("Metrics/Color_Loss", epoch_loss_col_avg, epoch)
         writer.add_scalar("Metrics/Exposure_Loss", epoch_loss_exp_avg, epoch)
         writer.add_scalar("Metrics/ColorVariance_Loss", epoch_loss_colvar_avg, epoch)
+        writer.add_scalar("Metrics/ImageQual_Loss", epoch_loss_iq_avg, epoch)
 
 def create_progress_pics(model, device, progress_ds, save_file_path):
     fig, ax = plt.subplots(len(progress_ds), 4, figsize=(17, 17))

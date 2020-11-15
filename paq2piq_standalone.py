@@ -173,7 +173,8 @@ class InferenceModel:
                 "category": self.categories[int(normed_score//20)]}
 
     def predict_global_with_grad(self, image):
-        image = self.transform(image)
+        if type(image) is not torch.Tensor:
+            image = self.transform(image)
         image = image.unsqueeze_(0)
         image = image.to(self.device)
         self.model.input_block_rois(self.blk_size, [image.shape[-2], image.shape[-1]], device=self.device)
