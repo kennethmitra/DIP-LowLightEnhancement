@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}Title{% endblock %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='custom.css') }}" />
+{% endblock %}
+
+{% block body %}
+    <div id="back">
+        <p>hello</p>
+    </div>
+    <div id="front">
+        <p>nello</p>
+    </div>
+
+{% endblock %}
