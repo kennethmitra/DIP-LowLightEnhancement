@@ -34,7 +34,7 @@ def train():
     seed = 69
     FORCE_CPU = False
 
-    run_name = "uhoh_test_gamma_A_2"
+    run_name = "spatial_gamma_A_1"
     save_dir = f'./saves/{run_name}'
     SAVE_EPOCH_FREQ = 1
 
@@ -103,7 +103,7 @@ def train():
     # Loss Functions
     color_loss = ColorConstancyLoss(method=4, device=device, patch_size=8, epsilon=5e-7, gammas=(0.5, 2))  # Using my custom WB loss
     exposure_loss = ExposureControlLoss(gray_value=0.5, patch_size=16, method=1, device=device)   # Using method 2 based on bsun0802's code
-    spatial_loss = SpatialConsistencyLoss(device=device)
+    spatial_loss = SpatialConsistencyLoss(device=device, method=1, gammas=(0.5, 2))
     illumination_loss = IlluminationSmoothnessLoss(method=3)  # From bsun0802's code
     colvar_loss = ColorVarianceLoss()
     

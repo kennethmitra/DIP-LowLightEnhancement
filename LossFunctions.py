@@ -168,6 +168,7 @@ class SpatialConsistencyLoss(nn.Module):
     def __init__(self, device, method, gammas=(0.5, 2)):
         super(SpatialConsistencyLoss, self).__init__()
         self.method = method
+        self.gammas = gammas
         self.pool = nn.AvgPool2d(4).to(device)
         self.kernel_left = torch.FloatTensor([[0, 0, 0],
                                               [-1, 1, 0],
@@ -186,9 +187,9 @@ class SpatialConsistencyLoss(nn.Module):
 
         # Convert to grayscale (keepdim=True since F.conv2d() expects n,c,h,w)
         if self.gammas is not None:
-            orig_grayscale = (original ** self.gammas[0] + original ** self.gammas[1]) / 2
-        else:
-            orig_grayscale = torch.mean(original, dim=1, keepdim=True)
+            original = (original ** self.gammas[0] + original ** self.gammas[1]) / 2
+
+        orig_grayscale = torch.mean(original, dim=1, keepdim=True)
 
         enhanced_grayscale = torch.mean(enhanced, dim=1, keepdim=True)
 
