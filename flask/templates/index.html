@@ -1,9 +1,35 @@
 {% extends 'base.html' %}
 
-{% block title %}{% endblock %}
+{% block title %}NightSight{% endblock %}
 
-{% block head %}{% endblock %}
+{% block head %}
+    <script src="../static/particles.js"></script>
+    <link rel="stylesheet" href="../static/custom.css">
+{% endblock %}
 
 {% block body %}
-<p>Fck me</p>
+<div id="particles-js" style="background-color: #1B1B1C;">
+<div class="container" style="background-color: transparent">
+    <div class="row" style="height: 10vh">
+        <h1 class="display-2" style="color: white">NightSight</h1>
+    </div>
+    <div class="row" style="height: 90vh">
+        <div class="col-sm-6" style="background-color: salmon">
+            <img src="https://cdn.cnn.com/cnnnext/dam/assets/201113173216-donald-trump-november-13-2020-01-exlarge-169.jpg" class="img-fluid" alt="Original">
+            <form style="margin-top: 5px">
+                <div class="form-group">
+                    <label for="source">Image Link</label>
+                    <input type="link" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary">Enhance</button>
+            </form>
+        </div>
+        <div class="col-sm-6" id="hello" style="background-color: aqua"><p>Hello</p></div>
+    </div>
+</div>
+</div>
+
+<script>
+    particlesJS.load('particles-js', '../static/particlesjs-config.json');
+</script>
 {% endblock %}

@@ -38,10 +38,15 @@ def train():
     save_dir = f'./saves/{run_name}'
     SAVE_EPOCH_FREQ = 1
 
-    ILL_LOSS_WEIGHT = 7.5
-    SPA_LOSS_WEIGHT = 10
-    COL_LOSS_WEIGHT = 2.6
-    EXP_LOSS_WEIGHT = 3.8
+    # ILL_LOSS_WEIGHT = 9
+    # SPA_LOSS_WEIGHT = 1
+    # COL_LOSS_WEIGHT = 3
+    # EXP_LOSS_WEIGHT = 3.8
+    # COLVAR_LOSS_WEIGHT = 1
+    ILL_LOSS_WEIGHT = 10
+    SPA_LOSS_WEIGHT = 1
+    COL_LOSS_WEIGHT = 3
+    EXP_LOSS_WEIGHT = 4
     COLVAR_LOSS_WEIGHT = 1
     IQ_LOSS_WEIGHT = 5
 
@@ -105,11 +110,11 @@ def train():
     # Loss Functions
     color_loss = ColorConstancyLoss(method=4, device=device, patch_size=8, epsilon=5e-7, gammas=(0.5, 2))  # Using my custom WB loss
     exposure_loss = ExposureControlLoss(gray_value=0.5, patch_size=16, method=1, device=device)   # Using method 2 based on bsun0802's code
-    spatial_loss = SpatialConsistencyLoss(device=device)
+    spatial_loss = SpatialConsistencyLoss(device=device, method=1, gammas=(0.5, 2), pool_size=2)
     illumination_loss = IlluminationSmoothnessLoss(method=3)  # From bsun0802's code
     colvar_loss = ColorVarianceLoss()
     iq_loss = ImageQualityLoss(method=2, device=device, blk_size=(3, 5))  # From https://github.com/baidut/paq2piq/blob/master/demo.ipynb
-    
+
     # Datasets
     train_dataset = ImageDataset(image_dir="./images/train_data", image_dim=256)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
