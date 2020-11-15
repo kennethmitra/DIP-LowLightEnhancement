@@ -221,7 +221,7 @@ class RoIPoolModel(NoRoIPoolModel):
         idx = get_idx(batch_size, n_output, im_data.device)  # torch.Size([16, n_output])
         # print(n_output, batch_size, idx.size(), rois_data.size())
         indexed_rois = torch.cat((idx, rois_data), 1)
-        pooled_feat = self.roi_pool(base_feat, indexed_rois)
+        pooled_feat = self.roi_pool(base_feat, indexed_rois.float())
 
         if self.joint:
             pooled_feat = pooled_feat.view(batch_size, -1, self.roi_pool_size[0], self.roi_pool_size[1])

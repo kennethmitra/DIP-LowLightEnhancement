@@ -25,8 +25,9 @@ image3 = torch.from_numpy(np.asarray(image3).astype(float)).float() / 255.0   # 
 image3 = image3.permute(2, 0, 1)
 
 im = torch.stack([image1, image2, image3])
+im.requires_grad = True
 
 for i in range(im.shape[0]):
-    qmap = learn.predict_quality_map(im[i, :, :, :], [5, 5])
-    print(qmap.global_score)
+    quality = learn.predict_quality_map_custom(im[i, :, :, :], [5, 5])[1]
+    print(quality)
 

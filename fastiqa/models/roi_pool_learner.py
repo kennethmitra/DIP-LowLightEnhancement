@@ -57,7 +57,7 @@ class RoIPoolLearner(IqaLearner):
                 os.makedirs(dir)
             plt.savefig(filename, bbox_inches='tight')
 
-    def predict_quality_map(self, sample, blk_size=None):
+    def predict_quality_map_custom(self, sample, blk_size=None):
         """
 
         :param sample: fastai.vision.image.Image  open_image()
@@ -94,7 +94,10 @@ class RoIPoolLearner(IqaLearner):
 
         # convert sample to PIL image
         # image = PIL_Image.fromarray((255 * image2np(sample.px)).astype(np.uint8))
-        return QualityMap(a, sample, t[0].data[0])
+        return QualityMap(a, sample, t[0].data[0]), t[2][0]
+
+    def predict_quality_map(self, sample, blk_size=None):
+        return self.predict_quality_map_custom(sample, blk_size=None)[0]
 
     # valid on 1 image score and 3 patch scores
     def valid_on(self, db=None, kind="scatter", idx=0, suffixes='', **kwargs):
