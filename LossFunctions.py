@@ -165,11 +165,11 @@ class SpatialConsistencyLoss(nn.Module):
     The Spatial Consistency Loss attempts to preserve the difference between neighboring regions (top, down, left right)
     i.e) (1/K) * SUM( SUM( (|Y_i - Y_j| - |I_i - I_j|)^2 ) foreach neighbor region j) over all regions i)
     """
-    def __init__(self, device, method, gammas=(0.5, 2)):
+    def __init__(self, device, method, gammas=(0.5, 2), pool_size=4):
         super(SpatialConsistencyLoss, self).__init__()
         self.method = method
         self.gammas = gammas
-        self.pool = nn.AvgPool2d(4).to(device)
+        self.pool = nn.AvgPool2d(pool_size).to(device)
         self.kernel_left = torch.FloatTensor([[0, 0, 0],
                                               [-1, 1, 0],
                                               [0, 0, 0]]).unsqueeze(0).unsqueeze(0).to(device)
