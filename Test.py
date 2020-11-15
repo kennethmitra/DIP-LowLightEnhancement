@@ -23,40 +23,59 @@ if device != "cpu":
 print("-----------------------------------------------------------------------------------")
 
 # Load Saved Model
-save_file = "./saves/expLossSquared11/epo1.save"
+save_file = "./saves/Model4/epo2.save"
 model_state = torch.load(save_file)['model_state']
 
 model = EnhancerModel().to(device)
 model.load_state_dict(model_state)
 
-fig, ax = plt.subplots(len(test_dataset), 4, figsize=(17, 10))
+#fig, ax = plt.subplots(len(test_dataset), 4, figsize=(17, 10))
 
 with torch.no_grad():
     for img_num, image in enumerate(test_dataset):
         image = image.unsqueeze(dim=0).to(device)  # Add batch dimension and send to GPU
-        curves = model(image)
-        enhanced_image = model.enhance_image(image, curves)
-
-        curves = torch.stack(torch.split(curves, split_size_or_sections=3, dim=1), dim=1)
-
-        image = image.squeeze().permute(1, 2, 0).cpu().flip(dims=[0, 1])
-        curves = (curves.squeeze().permute(0, 2, 3, 1).mean(dim=0).cpu())/2+0.5
-        enhanced_image = enhanced_image.squeeze().permute(1, 2, 0).cpu()
-
-
-        ax[img_num][0].imshow(image)
-        ax[img_num][0].set_title("Original")
-        ax[img_num][1].imshow(curves)
-        ax[img_num][1].set_title("RGB Curves")
-        ax[img_num][2].imshow(curves.mean(dim=2))
-        ax[img_num][2].set_title("Grayscale Curves")
-        ax[img_num][3].imshow(enhanced_image)
-        ax[img_num][3].set_title("Enhanced Image")
-
-        enhanced_image = enhanced_image.flip(dims=[0, 1])
+        #curves = model(image)
+        #enhanced_image = model.enhance_image(image, curves)
+#
+#         curves = torch.stack(torch.split(curves, split_size_or_sections=3, dim=1), dim=1)
+#
+#         image = image.squeeze().permute(1, 2, 0).cpu().flip(dims=[0, 1])
+#         curves = (curves.squeeze().permute(0, 2, 3, 1).mean(dim=0).cpu())/2+0.5
+#         enhanced_image = enhanced_image.squeeze().permute(1, 2, 0).cpu()
+#
+#
+#         ax[img_num][0].imshow(image)
+#         ax[img_num][0].set_title("Original")
+#         ax[img_num][1].imshow(curves)
+#         ax[img_num][1].set_title("RGB Curves")
+#         ax[img_num][2].imshow(curves.mean(dim=2))
+#         ax[img_num][2].set_title("Grayscale Curves")
+#         ax[img_num][3].imshow(enhanced_image)
+#         ax[img_num][3].set_title("Enhanced Image")
+#
+#         enhanced_image = enhanced_image.flip(dims=[0, 1])
+#         plt.show()
         # save_image(enhanced_image, f"{SAVE_DIR}/{Path(test_dataset.image_names[img_num]).stem}_enhanced.jpg")
+        exposure_loss = ExposureControlLoss(gray_value=0.5, patch_size=16, method=1,
+                                            device=device)  # Using method 2 based on bsun0802's code
+        fig, ax = plt.subplots(4, 4, figsize=(17, 10))
+        for i in range(16):
+            curves = model(image)
+            enhanced_image = model.enhance_image(image,curves)
+            exposure_loss_val = torch.mean(exposure_loss(enhanced_image)).item()
+            curves = torch.stack(torch.split(curves, split_size_or_sections=3, dim=1), dim=1)
+            image = image.squeeze().permute(1, 2, 0).cpu().flip(dims=[0, 1])
+            curves = (curves.squeeze().permute(0, 2, 3, 1).mean(dim=0).cpu()) / 2 + 0.5
+            enhanced_image2 = enhanced_image.squeeze().permute(1, 2, 0).cpu()
+            ax[i//4][i%4].imshow(enhanced_image2)
 
-plt.show()
+            ax[i//4][i%4].set_title("Loss = " + str(exposure_loss_val))
+            image = enhanced_image
+            print(exposure_loss_val)
+        plt.show()
+
+
+
 
 print("DONE")
 
