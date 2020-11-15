@@ -5,5 +5,22 @@
 {% block head %}{% endblock %}
 
 {% block body %}
-<p>Fck me</p>
+<div class="container">
+    <div class="row" style="height: 10vh">
+        <h1 class="display-2">NightSight</h1>
+    </div>
+    <div class="row" style="height: 90vh">
+        <div class="col-sm-6" style="background-color: salmon">
+            <img src="https://cdn.cnn.com/cnnnext/dam/assets/201113173216-donald-trump-november-13-2020-01-exlarge-169.jpg" class="img-fluid" alt="Original">
+            <form style="margin-top: 5px">
+                <div class="form-group">
+                    <label for="source">Image Link</label>
+                    <input type="link" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary">Enhance</button>
+            </form>
+        </div>
+        <div class="col-sm-6" style="background-color: aqua"><p>Hello</p></div>
+    </div>
+</div>
 {% endblock %}
