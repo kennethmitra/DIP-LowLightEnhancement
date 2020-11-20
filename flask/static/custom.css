@@ -24,6 +24,16 @@ html {
     left: 0
 }
 
+#main {
+    border-radius: 10px;
+}
+
 .col-sm-6 {
     background-color: rgba(0, 0, 0, 0.6);
+}
+
+h1 {
+    background: linear-gradient(to left, #08B2E3, #EF3054);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
