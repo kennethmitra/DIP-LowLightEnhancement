@@ -3,9 +3,7 @@
 {% block title %}NightSight{% endblock %}
 
 {% block head %}
-    <script src="{{ url_for('static', filename='particles.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='custom.css') }}" />
-
 {% endblock %}
 
 {% block body %}
@@ -17,10 +15,10 @@
     <div class="row" id="main" style="height: 90vh">
         <div class="col-sm-6">
             <img src="https://cdn.cnn.com/cnnnext/dam/assets/201113173216-donald-trump-november-13-2020-01-exlarge-169.jpg" class="img-fluid" alt="Original">
-            <form style="margin-top: 10px">
+            <form method=POST enctype="multipart/form-data" action="{{ url_for('upload') }}" style="margin-top: 10px">
                 <div class="form-group">
                     <label>
-                        <input class="form-control">
+                        <input type="file" class="form-control" name="image">
                     </label>
                 </div>
                 <button type="submit" class="btn btn-primary">Enhance</button>
@@ -32,7 +30,8 @@
     </div>
 </div>
 
-<script>
-    particlesJS.load('particles-js', '{{ url_for('static', filename='particlesjs-config.json') }}');
-</script>
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script>
+        particlesJS.load('particles-js', '{{ url_for('static', filename='particlesjs-config.json') }}');
+    </script>
 {% endblock %}
