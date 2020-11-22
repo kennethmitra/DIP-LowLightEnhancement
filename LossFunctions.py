@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+from paq2piq_standalone import InferenceModel, RoIPoolModel
 
 import glob
 from PIL import Image
@@ -260,6 +261,33 @@ class IlluminationSmoothnessLoss(nn.Module):
             total_variance = (diff_x + diff_y).mean(dim=1).mean(dim=0) * 3
             return total_variance
 
+class ImageQualityLoss(nn.Module):
+    """
+    Uses the PaQ-2-PiQ model to compute reference-less image quality
+    See https://github.com/baidut/paq2piq/blob/master/demo.ipynb
+    """
+    def __init__(self, method, device, blk_size=(3, 5)):
+        super(ImageQualityLoss, self).__init__()
+        self.model = InferenceModel(RoIPoolModel(), './models/RoIPoolModel.pth', device=device)
+        self.model.blk_size = blk_size
+        self.method = method
+
+    def forward(self, enhanced, original=None):
+
+        if self.method == 1:
+            enhanced_scores = []
+            for i in range(enhanced.shape[0]):
+                enhanced_scores.append(self.model.predict_global_with_grad(enhanced[i]))
+            enhanced_scores = torch.stack(enhanced_scores)
+            return -(torch.mean(enhanced_scores)/100)
+
+        if self.method == 2:
+            assert original is not None
+            diff_scores = []
+            for i in range(enhanced.shape[0]):
+                diff_scores.append(self.model.predict_global_with_grad(enhanced[i]) - self.model.predict_global_with_grad(original[i]))
+            diff_scores = torch.stack(diff_scores)
+            return -(torch.mean(diff_scores) / 100)
 
 if __name__ == '__main__':
 
@@ -411,4 +439,15 @@ if __name__ == '__main__':
     result = customWB(images)
     print(f"Custom WB: {result}")
 
+    print()
+    print()
+    imageQualLoss = ImageQualityLoss(method=1)
+    result = imageQualLoss(images)
+    print(f"IQA Loss: {result}")
+
+    print()
+    print()
+    imageQualLoss = ImageQualityLoss(method=2)
+    result = imageQualLoss(enhanced=images, original=torch.stack([images[0], images[0], images[3], images[3], images[3]]))
+    print(f"IQA Loss: {result}")
 
