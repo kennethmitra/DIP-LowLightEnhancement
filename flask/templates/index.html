@@ -14,7 +14,10 @@
     </div>
     <div class="row" id="main" style="height: 90vh">
         <div class="col-sm-6">
-            <img src="https://cdn.cnn.com/cnnnext/dam/assets/201113173216-donald-trump-november-13-2020-01-exlarge-169.jpg" class="img-fluid" alt="Original">
+            {% if image_org is defined %}
+                <img src="{{ url_for('static', filename='uploads/'+image_org) }}" class="img-fluid" alt="Original">
+            {% endif %}
+
             <form method=POST enctype="multipart/form-data" action="{{ url_for('upload') }}" style="margin-top: 10px">
                 <div class="form-group">
                     <label>
