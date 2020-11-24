@@ -45,6 +45,9 @@ class FrameExtractor:
 
             success, image = self.vid_cap.read()
 
+            # Convert BGR to RGB
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
             if not success:
                 break
 
@@ -64,7 +67,7 @@ class FrameExtractor:
 
 if __name__ == '__main__':
     # If downloading from youtube
-    videoURL = "https://www.youtube.com/watch?v=lB0gmneMZxg"
+    videoURL = None #"https://www.youtube.com/watch?v=lB0gmneMZxg"
     save_dir = './images/videos'
     downloaded_video_name = 'video1'
     video_file_type = "mp4"
@@ -72,7 +75,7 @@ if __name__ == '__main__':
     every_n_frames = 1
 
     # If using a video file
-    videoFile = None
+    videoFile = "./images/videos/video1.mp4"
 
     if videoFile is None and videoURL is None:
         raise Exception('Both videoFile and videoURL are None')

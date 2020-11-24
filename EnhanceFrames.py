@@ -10,8 +10,11 @@ from collections import defaultdict
 import cv2
 import re
 
-INPUT_DIR = "images/videos/video1"
-OUTPUT_DIR = "images/video1_output/"
+# INPUT_DIR = "images/videos/video1"
+# OUTPUT_DIR = "images/video1_output/"
+INPUT_DIR = "images/progress_pics"
+OUTPUT_DIR = "images/train_output"
+FILE_EXTENSION = ".jpg"
 
 Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
 
@@ -70,7 +73,7 @@ save_files = (("J2_epo1", "./models/j2_epo1.save", False),
 # save_files = (("ZeroDCE", "", False))
 
 # Create dataset
-test_dataset = ImageDataset(INPUT_DIR, 512, f_ext=".png", sort_key=natural_keys, suppress_warnings=True)
+test_dataset = ImageDataset(INPUT_DIR, 512, f_ext=FILE_EXTENSION, sort_key=natural_keys, suppress_warnings=True)
 len_test_dataset = len(test_dataset)
 print(f"Number of images in test: {len_test_dataset}")
 
@@ -98,7 +101,7 @@ for save_file in save_files:
 
     with torch.no_grad():
         for img_num, image in enumerate(test_dataset):
-            image_name = f"{cwd}/frame_{img_num}.png"
+            image_name = f"{cwd}/frame_{img_num}{FILE_EXTENSION}"
 
             if not Path(image_name).exists():
                 image = image.unsqueeze(dim=0).to(device)  # Add batch dimension and send to GPU
@@ -109,8 +112,11 @@ for save_file in save_files:
             else:
                 print(f"Skipping {image_name} because it already exists")
 
-            if img_num % (len_test_dataset // 20) == 0:
-                print(f"\t{img_num / len_test_dataset * 100 :.2f}% complete")
+            try:
+                if img_num % (len_test_dataset // 20) == 0:
+                    print(f"\t{img_num / len_test_dataset * 100 :.2f}% complete")
+            except:
+                pass
 
 
 ############################################################
@@ -129,7 +135,7 @@ for save_file in save_files:
     if not Path(cwd).exists():
         raise FileNotFoundError("Uh so the directory couldn't be found... :(")
 
-    image_datasets[save_file[0]] = ImageDataset(cwd, 512, f_ext=".png", sort_key=natural_keys, suppress_warnings=True)
+    image_datasets[save_file[0]] = ImageDataset(cwd, 512, f_ext=FILE_EXTENSION, sort_key=natural_keys, suppress_warnings=True)
 
 # Make sure all datasets have all frames of video
 length = -1
@@ -147,7 +153,7 @@ scores_hist = []
 model_freq = defaultdict(lambda: 0)
 for img_num, images in enumerate(zip(test_dataset, *image_datasets.values())):
     selectedImage, max_idx, max_score = imageSelector.select_best(original_image=images[0], enhanced_images=images)
-    save_image(selectedImage, f'{cwd}/frame_{img_num}.png')
+    save_image(selectedImage, f'{cwd}/frame_{img_num}{FILE_EXTENSION}')
     scores_hist.append(max_score)
 
     if max_idx != 0:
@@ -155,8 +161,11 @@ for img_num, images in enumerate(zip(test_dataset, *image_datasets.values())):
     else:
         model_freq['Original'] += 1
 
-    if img_num % (len_test_dataset // 20) == 0:
-         print(f"\t{img_num / len_test_dataset * 100 :.2f}% complete")
+    try:
+        if img_num % (len_test_dataset // 20) == 0:
+             print(f"\t{img_num / len_test_dataset * 100 :.2f}% complete")
+    except:
+        pass
 
 # Print out which models were used how frequently
 print("Model popularity")
