@@ -55,7 +55,7 @@ with torch.no_grad():
 #
 #         enhanced_image = enhanced_image.flip(dims=[0, 1])
 #         plt.show()
-        # save_image(enhanced_image, f"{SAVE_DIR}/{Path(test_dataset.image_names[img_num]).stem}_enhanced.jpg")
+        # save_image(enhanced_image, f"{OUTPUT_DIR}/{Path(test_dataset.image_names[img_num]).stem}_enhanced.jpg")
         exposure_loss = ExposureControlLoss(gray_value=0.4, patch_size=16, method=1, device=device)  # Using method 2 based on bsun0802's code
         exp_orig = exposure_loss(image)
         iq_loss = ImageQualityLoss(method=2, device=device,

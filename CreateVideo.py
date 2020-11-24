@@ -2,16 +2,17 @@ import cv2
 import numpy as np
 import os
 from os.path import isfile, join
-import  re
+import re
+import glob
 
 def atoi(text):
     return int(text) if text.isdigit() else text
 def natural_keys(text):
     return [ atoi(c) for c in re.split('(\d+)',text) ]
 
-pathIn = './images/video_output/'
+pathIn = './images/video1_output/selected'
 pathOut = 'enhanced.avi'
-fps = 30
+fps = 25
 frame_array = []
 files = [f for f in os.listdir(pathIn) if isfile(join(pathIn, f))]
 # for sorting the file names properly
@@ -21,8 +22,7 @@ files = [f for f in os.listdir(pathIn) if isfile(join(pathIn, f))]
 files.sort(key = natural_keys)
 
 # for sorting the file names properly
-for i in range(len(files)):
-    filename = pathIn + files[i]
+for filename in glob.glob(f'{pathIn}/*.png'):
     # reading each files
     img = cv2.imread(filename)
     height, width, layers = img.shape
