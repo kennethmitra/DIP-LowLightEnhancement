@@ -67,31 +67,31 @@ print(f"Number of images in test: {len_test_dataset}")
 #                       Enhance Images                     #
 ############################################################
 
-# # We can't fit all the models in memory at once, so we run them one at a time
-# for save_file in save_files:
-#     cwd = f"{OUTPUT_DIR}/{save_file[0]}"
-#     Path(cwd).mkdir(parents=True, exist_ok=True)
-#
-#     # Load model
-#     model = EnhancerModel().to(device)
-#     saved_info = torch.load(save_file[1])
-#     model_state = saved_info['model_state']
-#     model.load_state_dict(model_state)
-#     print(f"Loading model {save_file[0]} from path {save_file[1]}, snapshot of epoch {saved_info['epoch']}")
-#
-#     with torch.no_grad():
-#         for img_num, image in enumerate(test_dataset):
-#             image_name = f"{cwd}/frame_{img_num}.png"
-#
-#             if not Path(image_name).exists():
-#                 image = image.unsqueeze(dim=0).to(device)  # Add batch dimension and send to GPU
-#                 curves = model(image)                      # Predict curves with model
-#                 enhanced_image = model.enhance_image(image, curves)  # Apply curves to image
-#
-#                 save_image(enhanced_image, image_name)
-#
-#             if img_num % (len_test_dataset // 20) == 0:
-#                 print(f"\t{img_num / len_test_dataset * 100 :.2f}% complete")
+# We can't fit all the models in memory at once, so we run them one at a time
+for save_file in save_files:
+    cwd = f"{OUTPUT_DIR}/{save_file[0]}"
+    Path(cwd).mkdir(parents=True, exist_ok=True)
+
+    # Load model
+    model = EnhancerModel().to(device)
+    saved_info = torch.load(save_file[1])
+    model_state = saved_info['model_state']
+    model.load_state_dict(model_state)
+    print(f"Loading model {save_file[0]} from path {save_file[1]}, snapshot of epoch {saved_info['epoch']}")
+
+    with torch.no_grad():
+        for img_num, image in enumerate(test_dataset):
+            image_name = f"{cwd}/frame_{img_num}.png"
+
+            if not Path(image_name).exists():
+                image = image.unsqueeze(dim=0).to(device)  # Add batch dimension and send to GPU
+                curves = model(image)                      # Predict curves with model
+                enhanced_image = model.enhance_image(image, curves)  # Apply curves to image
+
+                save_image(enhanced_image, image_name)
+
+            if img_num % (len_test_dataset // 20) == 0:
+                print(f"\t{img_num / len_test_dataset * 100 :.2f}% complete")
 
 
 ############################################################
