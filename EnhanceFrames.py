@@ -1,10 +1,12 @@
 import torch
-
+from torchvision import transforms
+import matplotlib.pyplot as plt
 from ImageDataset import ImageDataset
 from Model import EnhancerModel
 from pathlib import Path
 from LossFunctions import *
 from torchvision.utils import save_image
+from collections import defaultdict
 import cv2
 import re
 
@@ -35,9 +37,12 @@ class ImageQualitySelector:
                 exp_total_loss = ((1 + exp_loss_val) ** 2 - 1) * 1.5
                 #print(f'{iq_total_loss} {exp_total_loss}')
                 enhanced_scores.append(iq_total_loss + exp_total_loss)
-            min_index, min_score = min(enumerate(enhanced_scores), key=lambda x: x[1])
-            #print(f"Min val: {min_score}")
-        return enhanced_images[min_index]
+                # plt.imshow(transforms.ToPILImage()(enhanced_image))
+                # plt.title(enhanced_scores[-1])
+                # plt.show()
+            max_index, max_score = max(enumerate(enhanced_scores), key=lambda x: x[1])
+            #print(f"Min val: {max_score}")
+        return enhanced_images[max_index], max_index, max_score
 
 
 
@@ -52,10 +57,17 @@ if device != "cpu":
     print('Current CUDA device name ', torch.cuda.get_device_name(device))
 print("-----------------------------------------------------------------------------------")
 
-# List of Models to use (Folder name, save file location)
-save_files = (("J2_epo1", "./models/j2_epo1.save"),
-              ("J2_epo3", "./models/j2_epo3.save"),
-              ("J3_epo2", "./models/j3_epo2.save"))
+# List of Models to use (Folder name, save file location, skip_predictions)
+# We don't run predictions on frames that already exist but checking if the enhanced_files exist takes time
+# so we have another level of skipping in the models tuple
+
+save_files = (("J2_epo1", "./models/j2_epo1.save", False),
+              ("J2_epo3", "./models/j2_epo3.save", False),
+              ("J3_epo2", "./models/j3_epo2.save", False),
+              ("J4_epo3", "./models/j4_epo3.save", False),
+              ("Uhoh_epo200", "./models/uhoh_test_gamma_A_2_epo200.save", False),
+              ("deexp2_epo2", "./models/deexp2_epo1.save", False))
+# save_files = (("ZeroDCE", "", False))
 
 # Create dataset
 test_dataset = ImageDataset(INPUT_DIR, 512, f_ext=".png", sort_key=natural_keys, suppress_warnings=True)
@@ -69,6 +81,11 @@ print(f"Number of images in test: {len_test_dataset}")
 
 # We can't fit all the models in memory at once, so we run them one at a time
 for save_file in save_files:
+
+    # Skip model if skip_predictions is True
+    if save_file[2]:
+        continue
+
     cwd = f"{OUTPUT_DIR}/{save_file[0]}"
     Path(cwd).mkdir(parents=True, exist_ok=True)
 
@@ -89,6 +106,8 @@ for save_file in save_files:
                 enhanced_image = model.enhance_image(image, curves)  # Apply curves to image
 
                 save_image(enhanced_image, image_name)
+            else:
+                print(f"Skipping {image_name} because it already exists")
 
             if img_num % (len_test_dataset // 20) == 0:
                 print(f"\t{img_num / len_test_dataset * 100 :.2f}% complete")
@@ -112,14 +131,37 @@ for save_file in save_files:
 
     image_datasets[save_file[0]] = ImageDataset(cwd, 512, f_ext=".png", sort_key=natural_keys, suppress_warnings=True)
 
+# Make sure all datasets have all frames of video
+length = -1
+for ds_name in image_datasets:
+    if length >= 0:
+        assert len(image_datasets[ds_name]) == length
+    else:
+        length = len(image_datasets[ds_name])
+
 cwd = f"{OUTPUT_DIR}/selected"
 Path(cwd).mkdir(parents=True, exist_ok=True)
 
 # Step through datasets simultaneously and chose best images
+scores_hist = []
+model_freq = defaultdict(lambda: 0)
 for img_num, images in enumerate(zip(test_dataset, *image_datasets.values())):
-    selectedImage = imageSelector.select_best(original_image=images[0], enhanced_images=images[1:])
+    selectedImage, max_idx, max_score = imageSelector.select_best(original_image=images[0], enhanced_images=images)
     save_image(selectedImage, f'{cwd}/frame_{img_num}.png')
+    scores_hist.append(max_score)
+
+    if max_idx != 0:
+        model_freq[save_files[max_idx-1][0]] += 1
+    else:
+        model_freq['Original'] += 1
 
     if img_num % (len_test_dataset // 20) == 0:
          print(f"\t{img_num / len_test_dataset * 100 :.2f}% complete")
 
+# Print out which models were used how frequently
+print("Model popularity")
+for model_name, freq in model_freq.items():
+    print(f"{model_name}\t{freq}")
+
+plt.plot(scores_hist)
+plt.show()
