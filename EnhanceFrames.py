@@ -1,3 +1,5 @@
+import os
+
 import torch
 from torchvision import transforms
 import matplotlib.pyplot as plt
@@ -9,6 +11,15 @@ from torchvision.utils import save_image
 from collections import defaultdict
 import cv2
 import re
+
+
+from Deep_White_Balance.arch import deep_wb_model
+import Deep_White_Balance.utilities.utils as utls
+from Deep_White_Balance.utilities.deepWB import deep_wb
+import Deep_White_Balance.arch.splitNetworks as splitter
+from Deep_White_Balance.arch import deep_wb_single_task
+
+
 
 INPUT_DIR = "images/videos/video1"
 OUTPUT_DIR = "images/video1_output/"
@@ -70,7 +81,8 @@ save_files = (("J2_epo1", "./models/j2_epo1.save", False),
               ("J4_epo3", "./models/j4_epo3.save", True),
               ("Uhoh_epo200", "./models/uhoh_test_gamma_A_2_epo200.save", False),
               ("deexp2_epo2", "./models/deexp2_epo1.save", True))
-# save_files = (("ZeroDCE", "", False))
+
+STAGE_SELECTORS = (False, False, True)
 
 # Create dataset
 test_dataset = ImageDataset(INPUT_DIR, 512, f_ext=FILE_EXTENSION, sort_key=natural_keys, suppress_warnings=True)
@@ -81,100 +93,131 @@ print(f"Number of images in test: {len_test_dataset}")
 ############################################################
 #                       Enhance Images                     #
 ############################################################
+if STAGE_SELECTORS[0]:
+    # We can't fit all the models in memory at once, so we run them one at a time
 
-# We can't fit all the models in memory at once, so we run them one at a time
-for save_file in save_files:
+    for save_file in save_files:
 
-    # Skip model if skip_predictions is True
-    if save_file[2]:
-        continue
+        # Skip model if skip_predictions is True
+        if save_file[2]:
+            continue
 
-    cwd = f"{OUTPUT_DIR}/{save_file[0]}"
-    Path(cwd).mkdir(parents=True, exist_ok=True)
+        cwd = f"{OUTPUT_DIR}/{save_file[0]}"
+        Path(cwd).mkdir(parents=True, exist_ok=True)
 
-    # Load model
-    model = EnhancerModel().to(device)
-    saved_info = torch.load(save_file[1])
-    model_state = saved_info['model_state']
-    model.load_state_dict(model_state)
-    print(f"Loading model {save_file[0]} from path {save_file[1]}, snapshot of epoch {saved_info['epoch']}")
+        # Load model
+        model = EnhancerModel().to(device)
+        saved_info = torch.load(save_file[1])
+        model_state = saved_info['model_state']
+        model.load_state_dict(model_state)
+        print(f"Loading model {save_file[0]} from path {save_file[1]}, snapshot of epoch {saved_info['epoch']}")
 
-    with torch.no_grad():
-        for img_num, image in enumerate(test_dataset):
-            image_name = f"{cwd}/frame_{img_num}{FILE_EXTENSION}"
+        with torch.no_grad():
+            for img_num, image in enumerate(test_dataset):
+                image_name = f"{cwd}/frame_{img_num}{FILE_EXTENSION}"
 
-            if not Path(image_name).exists():
-                image = image.unsqueeze(dim=0).to(device)  # Add batch dimension and send to GPU
-                curves = model(image)                      # Predict curves with model
-                enhanced_image = model.enhance_image(image, curves)  # Apply curves to image
+                if not Path(image_name).exists():
+                    image = image.unsqueeze(dim=0).to(device)  # Add batch dimension and send to GPU
+                    curves = model(image)                      # Predict curves with model
+                    enhanced_image = model.enhance_image(image, curves)  # Apply curves to image
 
-                save_image(enhanced_image, image_name)
-            else:
-                print(f"Skipping {image_name} because it already exists")
+                    save_image(enhanced_image, image_name)
+                else:
+                    print(f"Skipping {image_name} because it already exists")
 
-            try:
-                if img_num % (len_test_dataset // 20) == 0:
-                    print(f"\t{img_num / len_test_dataset * 100 :.2f}% complete")
-            except:
-                pass
+                try:
+                    if img_num % (len_test_dataset // 20) == 0:
+                        print(f"\t{img_num / len_test_dataset * 100 :.2f}% complete")
+                except:
+                    pass
 
 
 ############################################################
 #                   Select Enhanced Images                 #
 ############################################################
 
-print("Selecting best images...")
+if STAGE_SELECTORS[1]:
+    print("Selecting best images...")
 
-imageSelector = ImageQualitySelector()
+    imageSelector = ImageQualitySelector()
 
-# Create datasets for each model's enhanced images
-image_datasets = {}
-for save_file in save_files:
+    # Create datasets for each model's enhanced images
+    image_datasets = {}
+    for save_file in save_files:
 
-    cwd = f"{OUTPUT_DIR}/{save_file[0]}"
-    if not Path(cwd).exists():
-        continue
+        cwd = f"{OUTPUT_DIR}/{save_file[0]}"
+        if not Path(cwd).exists():
+            continue
 
-    image_datasets[save_file[0]] = ImageDataset(cwd, 512, f_ext=FILE_EXTENSION, sort_key=natural_keys, suppress_warnings=True)
+        image_datasets[save_file[0]] = ImageDataset(cwd, 512, f_ext=FILE_EXTENSION, sort_key=natural_keys, suppress_warnings=True)
 
-# Make sure all datasets have all frames of video
-length = -1
-for ds_name in image_datasets:
-    if length >= 0:
-        assert len(image_datasets[ds_name]) == length
-    else:
-        length = len(image_datasets[ds_name])
+    # Make sure all datasets have all frames of video
+    length = -1
+    for ds_name in image_datasets:
+        if length >= 0:
+            assert len(image_datasets[ds_name]) == length
+        else:
+            length = len(image_datasets[ds_name])
 
-cwd = f"{OUTPUT_DIR}/selected"
-Path(cwd).mkdir(parents=True, exist_ok=True)
+    cwd = f"{OUTPUT_DIR}/selected"
+    Path(cwd).mkdir(parents=True, exist_ok=True)
 
-# Step through datasets simultaneously and chose best images
-scores_hist = []
-model_freq = defaultdict(lambda: 0)
-for img_num, images in enumerate(zip(test_dataset, *image_datasets.values())):
-    selectedImage, max_idx, max_score = imageSelector.select_best(original_image=images[0], enhanced_images=images)
-    save_image(selectedImage, f'{cwd}/frame_{img_num}{FILE_EXTENSION}')
-    scores_hist.append(max_score)
+    # Step through datasets simultaneously and chose best images
+    scores_hist = []
+    model_freq = defaultdict(lambda: 0)
+    for img_num, images in enumerate(zip(test_dataset, *image_datasets.values())):
+        selectedImage, max_idx, max_score = imageSelector.select_best(original_image=images[0], enhanced_images=images)
+        save_image(selectedImage, f'{cwd}/frame_{img_num}{FILE_EXTENSION}')
+        scores_hist.append(max_score)
 
-    if max_idx != 0:
-        model_freq[save_files[max_idx-1][0]] += 1
-    else:
-        model_freq['Original'] += 1
+        if max_idx != 0:
+            model_freq[save_files[max_idx-1][0]] += 1
+        else:
+            model_freq['Original'] += 1
 
-    try:
-        if img_num % (len_test_dataset // 20) == 0:
-             print(f"\t{img_num / len_test_dataset * 100 :.2f}% complete")
-    except:
-        pass
+        try:
+            if img_num % (len_test_dataset // 20) == 0:
+                 print(f"\t{img_num / len_test_dataset * 100 :.2f}% complete")
+        except:
+            pass
 
-# Print out which models were used how frequently
-print("Model popularity")
-for model_name, freq in model_freq.items():
-    print(f"{model_name}\t{freq}")
+    # Print out which models were used how frequently
+    print("Model popularity")
+    for model_name, freq in model_freq.items():
+        print(f"{model_name}\t{freq}")
 
-plt.plot(scores_hist)
-plt.show()
+    plt.plot(scores_hist)
+    plt.show()
 
 ############################################################
 #                     Color Grading                        #
 ############################################################
+if STAGE_SELECTORS[2]:
+
+    print("Correcting White Balance...")
+
+    net_awb = deep_wb_single_task.deepWBnet()
+    net_awb.to(device=device)
+    net_awb.load_state_dict(torch.load(os.path.join("./Deep_White_Balance/models", 'net_awb.pth'), map_location=device))
+    net_awb.eval()
+
+    cwd = f"{OUTPUT_DIR}/selected"
+    assert Path(cwd).exists()
+    cwd = f"{OUTPUT_DIR}/awb"
+    Path(cwd).mkdir(parents=True, exist_ok=True)
+
+    # Auto White Balance
+    file_names = glob.glob(f"{OUTPUT_DIR}/selected/*{FILE_EXTENSION}")
+    file_names.sort(key=natural_keys)
+
+    for i, image_name in enumerate(file_names):
+        image = Image.open(image_name)
+        out_awb = deep_wb(image, task='awb', net_awb=net_awb, device=device, s=656)
+        result_awb = utls.to_image(out_awb)
+        result_awb.save(f"{cwd}/frame_awb_{i}{FILE_EXTENSION}")
+
+        try:
+            if i % (len_test_dataset // 20) == 0:
+                 print(f"\t{i / len_test_dataset * 100 :.2f}% complete")
+        except:
+            pass
