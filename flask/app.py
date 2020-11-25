@@ -24,11 +24,11 @@ def upload():
     if request.method == 'POST':
         if request.files:
             image = request.files['image']
-            if image.enhanced_filename == "":
-                print("No enhanced_filename")
+            if image.intermed_filename == "":
+                print("No intermed_filename")
                 return redirect(request.url)
-            if allowed_image(image.enhanced_filename):
-                filename = secure_filename(image.enhanced_filename)
+            if allowed_image(image.intermed_filename):
+                filename = secure_filename(image.intermed_filename)
                 image.save(os.path.join(app.config['IMAGE_UPLOADS'], filename))
                 return render_template('index.html', image_org=filename)
             else:

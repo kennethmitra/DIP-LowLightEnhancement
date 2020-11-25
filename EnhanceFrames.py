@@ -20,16 +20,6 @@ import Deep_White_Balance.arch.splitNetworks as splitter
 from Deep_White_Balance.arch import deep_wb_single_task
 
 
-
-INPUT_DIR = "images/videos/video1"
-OUTPUT_DIR = "images/video1_output/"
-# INPUT_DIR = "images/progress_pics"
-# OUTPUT_DIR = "images/train_output"
-FILE_EXTENSION = ".png"
-
-Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
-
-
 def atoi(text):
     return int(text) if text.isdigit() else text
 def natural_keys(text):
@@ -71,18 +61,28 @@ if device != "cpu":
     print('Current CUDA device name ', torch.cuda.get_device_name(device))
 print("-----------------------------------------------------------------------------------")
 
+
+INPUT_DIR = "images/videos/video1"
+OUTPUT_DIR = "images/video1_output/"
+# INPUT_DIR = "images/test_data"
+# OUTPUT_DIR = "images/test_output"
+FILE_EXTENSION = ".png"
+
+assert Path(INPUT_DIR).exists()
+Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
+
 # List of Models to use (Folder name, save file location, skip_predictions)
-# We don't run predictions on frames that already exist but checking if the enhanced_files exist takes time
+# We don't run predictions on frames that already exist but checking if the intermed_files exist takes time
 # so we have another level of skipping in the models tuple
 
 save_files = (("J2_epo1", "./models/j2_epo1.save", False),
-              ("J2_epo3", "./models/j2_epo3.save", True),
-              ("J3_epo2", "./models/j3_epo2.save", True),
-              ("J4_epo3", "./models/j4_epo3.save", True),
+              ("J2_epo3", "./models/j2_epo3.save", False),
+              ("J3_epo2", "./models/j3_epo2.save", False),
+              ("J4_epo3", "./models/j4_epo3.save", False),
               ("Uhoh_epo200", "./models/uhoh_test_gamma_A_2_epo200.save", False),
-              ("deexp2_epo2", "./models/deexp2_epo1.save", True))
+              ("deexp2_epo2", "./models/deexp2_epo1.save", False))
 
-STAGE_SELECTORS = (False, False, True)
+STAGE_SELECTORS = (False, False, False, True)
 
 # Create dataset
 test_dataset = ImageDataset(INPUT_DIR, 512, f_ext=FILE_EXTENSION, sort_key=natural_keys, suppress_warnings=True)
@@ -201,8 +201,10 @@ if STAGE_SELECTORS[2]:
     net_awb.load_state_dict(torch.load(os.path.join("./Deep_White_Balance/models", 'net_awb.pth'), map_location=device))
     net_awb.eval()
 
-    cwd = f"{OUTPUT_DIR}/selected"
-    assert Path(cwd).exists()
+    # Make sure input directory exists
+    assert Path(f"{OUTPUT_DIR}/selected").exists()
+
+    # Create and set output dir
     cwd = f"{OUTPUT_DIR}/awb"
     Path(cwd).mkdir(parents=True, exist_ok=True)
 
@@ -215,6 +217,43 @@ if STAGE_SELECTORS[2]:
         out_awb = deep_wb(image, task='awb', net_awb=net_awb, device=device, s=656)
         result_awb = utls.to_image(out_awb)
         result_awb.save(f"{cwd}/frame_awb_{i}{FILE_EXTENSION}")
+
+        try:
+            if i % (len_test_dataset // 20) == 0:
+                 print(f"\t{i / len_test_dataset * 100 :.2f}% complete")
+        except:
+            pass
+
+############################################################
+#             Adaptive Histogram Equalization              #
+############################################################
+
+
+if STAGE_SELECTORS[3]:
+    print("Applying Contrast Limited Adaptive Histogram Equalization...")
+
+    # Make sure input directory exists
+    input_dir = f"{OUTPUT_DIR}/selected"
+    assert Path(input_dir).exists()
+
+    # Create and set output dir
+    cwd = f"{OUTPUT_DIR}/clahe"
+    Path(cwd).mkdir(parents=True, exist_ok=True)
+
+    # Get list of file names
+    file_names = glob.glob(f"{input_dir}/*{FILE_EXTENSION}")
+    file_names.sort(key=natural_keys)
+
+    # Apply Histogram Equalization
+    clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8, 8))
+
+    for i, image_name in enumerate(file_names):
+        image = cv2.imread(image_name)
+        image_lab = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        image_lab[..., 2] = clahe.apply(image_lab[..., 2])
+        image = cv2.cvtColor(image_lab, cv2.COLOR_HSV2RGB)
+        result_clahe = Image.fromarray(image)
+        result_clahe.save(f"{cwd}/frame_he_{i}{FILE_EXTENSION}")
 
         try:
             if i % (len_test_dataset // 20) == 0:
