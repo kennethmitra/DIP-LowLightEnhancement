@@ -10,11 +10,11 @@ from collections import defaultdict
 import cv2
 import re
 
-# INPUT_DIR = "images/videos/video1"
-# OUTPUT_DIR = "images/video1_output/"
-INPUT_DIR = "images/progress_pics"
-OUTPUT_DIR = "images/train_output"
-FILE_EXTENSION = ".jpg"
+INPUT_DIR = "images/videos/video1"
+OUTPUT_DIR = "images/video1_output/"
+# INPUT_DIR = "images/progress_pics"
+# OUTPUT_DIR = "images/train_output"
+FILE_EXTENSION = ".png"
 
 Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
 
@@ -65,11 +65,11 @@ print("-------------------------------------------------------------------------
 # so we have another level of skipping in the models tuple
 
 save_files = (("J2_epo1", "./models/j2_epo1.save", False),
-              ("J2_epo3", "./models/j2_epo3.save", False),
-              ("J3_epo2", "./models/j3_epo2.save", False),
-              ("J4_epo3", "./models/j4_epo3.save", False),
+              ("J2_epo3", "./models/j2_epo3.save", True),
+              ("J3_epo2", "./models/j3_epo2.save", True),
+              ("J4_epo3", "./models/j4_epo3.save", True),
               ("Uhoh_epo200", "./models/uhoh_test_gamma_A_2_epo200.save", False),
-              ("deexp2_epo2", "./models/deexp2_epo1.save", False))
+              ("deexp2_epo2", "./models/deexp2_epo1.save", True))
 # save_files = (("ZeroDCE", "", False))
 
 # Create dataset
@@ -133,7 +133,7 @@ for save_file in save_files:
 
     cwd = f"{OUTPUT_DIR}/{save_file[0]}"
     if not Path(cwd).exists():
-        raise FileNotFoundError("Uh so the directory couldn't be found... :(")
+        continue
 
     image_datasets[save_file[0]] = ImageDataset(cwd, 512, f_ext=FILE_EXTENSION, sort_key=natural_keys, suppress_warnings=True)
 
@@ -174,3 +174,7 @@ for model_name, freq in model_freq.items():
 
 plt.plot(scores_hist)
 plt.show()
+
+############################################################
+#                     Color Grading                        #
+############################################################

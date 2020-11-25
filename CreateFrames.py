@@ -45,11 +45,13 @@ class FrameExtractor:
 
             success, image = self.vid_cap.read()
 
+            if not success:
+                break
+
             # Convert BGR to RGB
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-            if not success:
-                break
+
 
             if frame_cnt % every_x_frame == 0:
                 img_path = os.path.join(dest_path, ''.join([img_name, '_', str(img_cnt), img_ext]))
