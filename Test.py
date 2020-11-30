@@ -6,7 +6,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from LossFunctions import *
 
-DATA_DIR = "images/test_data"
+DATA_DIR = "images/progress_pics"
 SAVE_DIR = "images/test_data"
 test_dataset = ImageDataset(DATA_DIR, 512)
 Path(SAVE_DIR).mkdir(parents=True, exist_ok=True)
@@ -23,7 +23,7 @@ if device != "cpu":
 print("-----------------------------------------------------------------------------------")
 
 # Load Saved Model
-save_file = "./saves/Model4/epo2.save"
+save_file = "./saves/col_var_loss_enabled3/epo1.save"
 model_state = torch.load(save_file)['model_state']
 
 model = EnhancerModel().to(device)
@@ -55,23 +55,30 @@ with torch.no_grad():
 #
 #         enhanced_image = enhanced_image.flip(dims=[0, 1])
 #         plt.show()
-        # save_image(enhanced_image, f"{SAVE_DIR}/{Path(test_dataset.image_names[img_num]).stem}_enhanced.jpg")
-        exposure_loss = ExposureControlLoss(gray_value=0.5, patch_size=16, method=1,
-                                            device=device)  # Using method 2 based on bsun0802's code
+        # save_image(enhanced_image, f"{OUTPUT_DIR}/{Path(test_dataset.image_names[img_num]).stem}_enhanced.jpg")
+        exposure_loss = ExposureControlLoss(gray_value=0.4, patch_size=16, method=1, device=device)  # Using method 2 based on bsun0802's code
+        exp_orig = exposure_loss(image)
+        iq_loss = ImageQualityLoss(method=2, device=device,
+                                   blk_size=(3, 5))  # From https://github.com/baidut/paq2piq/blob/master/demo.ipynb
+
         fig, ax = plt.subplots(4, 4, figsize=(17, 10))
         for i in range(16):
-            curves = model(image)
-            enhanced_image = model.enhance_image(image,curves)
-            exposure_loss_val = torch.mean(exposure_loss(enhanced_image)).item()
-            curves = torch.stack(torch.split(curves, split_size_or_sections=3, dim=1), dim=1)
+            if i > 0:
+                curves = model(image)
+                enhanced_image = model.enhance_image(image, curves)
+            else:
+                enhanced_image = image
+            iq_loss_val = torch.mean(iq_loss(enhanced=enhanced_image, original=image)).item()
+            exp_loss_val = torch.mean(exposure_loss(image)).item()
             image = image.squeeze().permute(1, 2, 0).cpu().flip(dims=[0, 1])
-            curves = (curves.squeeze().permute(0, 2, 3, 1).mean(dim=0).cpu()) / 2 + 0.5
             enhanced_image2 = enhanced_image.squeeze().permute(1, 2, 0).cpu()
             ax[i//4][i%4].imshow(enhanced_image2)
 
-            ax[i//4][i%4].set_title("Loss = " + str(exposure_loss_val))
+            iq_total_loss = ((1 + -iq_loss_val)**2 - 1)
+            exp_total_loss = ((1 + exp_orig - exp_loss_val)**2 - 1) * 1.5
+            ax[i//4][i%4].set_title("Loss = " + str(iq_total_loss + exp_total_loss))
             image = enhanced_image
-            print(exposure_loss_val)
+            print(f'{iq_total_loss} {exp_total_loss}')
         plt.show()
 
 
