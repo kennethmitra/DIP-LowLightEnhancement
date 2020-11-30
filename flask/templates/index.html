@@ -15,24 +15,33 @@
     <div class="row" id="main" style="height: 90vh">
         <div class="col-sm-6">
             {% if image_org is defined %}
-                <img src="{{ url_for('static', filename='uploads/'+image_org) }}" class="img-fluid" alt="Original">
+                <img src="{{ url_for('static', filename='uploads/'+image_org) }}" class="img-fluid" alt="" style="width: 512px; height: 512px">
             {% endif %}
 
             <form method=POST enctype="multipart/form-data" action="{{ url_for('upload') }}" style="margin-top: 10px">
                 <div class="form-group">
                     <label>
                         <input type="file" class="form-control" name="image">
+                        <button type="submit" class="">Upload</button>
                     </label>
                 </div>
-                <button type="submit" class="btn btn-primary">Enhance</button>
             </form>
+            <button onclick="enhance()">Enhance</button>
+
+
         </div>
         <div class="col-sm-6">
-            <p>Hello</p>
+            <div id="enhanced_image_div" style="height: 512px; width: 512px">
+
+            </div>
         </div>
     </div>
 </div>
-
+    <script>
+        function enhance() {
+            document.getElementById("enhanced_image_div").innerHTML = $("#enhanced_image_div").load("/enhance?image={{ image_org }}");
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
     <script>
         particlesJS.load('particles-js', '{{ url_for('static', filename='particlesjs-config.json') }}');

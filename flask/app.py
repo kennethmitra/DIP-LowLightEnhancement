@@ -1,7 +1,8 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, send_file
 from werkzeug.utils import secure_filename
 import os
 import sys
+from
 
 app = Flask(__name__)
 
@@ -35,6 +36,16 @@ def upload():
                 print("That file extension is not allowed")
                 return redirect(request.url)
     return render_template('index.html')
+
+
+@app.route('/enhance')
+def enhance():
+    print("triggered")
+    image_name = request.args.get('image')
+
+
+
+    return render_template('image.html', image=image_name)
 
 
 @app.route('/')
